@@ -224,8 +224,10 @@ button, input, select, textarea {
   --ball-pink: rgb(var(--ball-pink-rgb));
   --ball-yellow: rgb(var(--ball-yellow-rgb));
   --ball-gold: rgb(var(--ball-gold-rgb));
-  --card-width: clamp(140px, 9.8vw, 172px);
-  --card-image-height: clamp(96px, 6.6vw, 116px);
+  /* 실물 신용카드(ISO ID-1) 세로 배치 1:1 — 54mm × 85.6mm */
+  --card-width: 53.98mm;
+  --card-height: 85.6mm;
+  --card-image-height: 150px;
   --mini-card-width: 72px;
   --scored-stack-overlap: 48px;
   --ai-scored-stack-overlap: 27px;
@@ -351,7 +353,7 @@ button, input, select, textarea {
   position: relative;
   flex: 0 0 var(--card-width);
   width: var(--card-width);
-  min-height: 228px;
+  height: var(--card-height);
   display: flex;
   flex-direction: column;
   border-radius: 14px;
@@ -413,11 +415,12 @@ button, input, select, textarea {
   align-items: center;
   justify-content: center;
   background: #ffffff;
-  min-height: var(--card-image-height);
+  min-height: 0;
+  overflow: hidden;
 }
 .poke-card .card-img {
   width: 100%;
-  height: var(--card-image-height);
+  height: 100%;
   object-fit: contain;
 }
 .poke-card .pc-stage {
