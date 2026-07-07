@@ -224,9 +224,9 @@ button, input, select, textarea {
   --ball-pink: rgb(var(--ball-pink-rgb));
   --ball-yellow: rgb(var(--ball-yellow-rgb));
   --ball-gold: rgb(var(--ball-gold-rgb));
-  /* 실물 신용카드(ISO ID-1) 세로 배치 1:1 비율 (54:85.6). 고DPI 화면 보정해 확대. */
-  --card-width: 258px;
-  --card-height: 409px;
+  /* 신용카드 비율(54:85.6=1:1.585). 창 너비에 맞춰 4장이 가로 스크롤 없이 들어가도록 반응형. */
+  --card-width: clamp(116px, calc((100vw - 720px) / 4), 250px);
+  --card-height: calc(var(--card-width) * 1.585);
   --card-image-height: 150px;
   --mini-card-width: 72px;
   --scored-stack-overlap: 48px;
