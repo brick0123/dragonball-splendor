@@ -379,7 +379,7 @@ button, input, select, textarea {
 /* 보너스 색 → 카드 액센트(테두리/헤더/이름 배지) */
 .poke-card.card-bg-red    { --pc-accent: var(--ball-red-rgb); }
 .poke-card.card-bg-blue   { --pc-accent: var(--ball-blue-rgb); }
-.poke-card.card-bg-black  { --pc-accent: var(--card-black-border-rgb); }
+.poke-card.card-bg-black  { --pc-accent: 51, 54, 61; }  /* 검정 카드는 실제로 어둡게 */
 .poke-card.card-bg-pink   { --pc-accent: var(--ball-pink-rgb); }
 .poke-card.card-bg-yellow { --pc-accent: var(--ball-yellow-rgb); }
 
