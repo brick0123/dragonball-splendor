@@ -594,36 +594,39 @@ button, input, select, textarea {
   background: linear-gradient(180deg, rgba(168,85,247,0.16), rgba(124,58,237,0.08));
   border: 4px solid rgb(168,85,247);
 }
-/* 헤더: 일반 카드(pc-head)와 동일 — 점수는 좌측(pc-pts), 레시피는 우측(보너스 자리) */
+/* 헤더: 점수만 좌측(pc-pts). 숫자만 있으므로 높이를 낮춰 아트 공간 확보 */
 .fusion-card .fusion-head {
-  justify-content: flex-end;
-  padding: 4px 8px 4px 52px;
+  min-height: 46px;
+  justify-content: flex-start;
+  padding: 2px 8px;
 }
-/* 퓨전 획득 조건(레시피): 필요 캐릭터 2단계 썸네일 + 단계 라벨 (헤더 우측) */
+/* 퓨전 획득 조건(레시피): 헤더 아래 전용 띠에 필요 캐릭터 2단계 썸네일을 크게 */
 .fusion-card .fusion-recipe {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 3px;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 4px 3px;
+  background: rgba(124,58,237,0.22);
+  border-bottom: 1px dashed rgba(168,85,247,0.5);
   z-index: 2;
 }
 .fusion-card .fusion-req { display: flex; flex-direction: column; align-items: center; }
 .fusion-card .fusion-req img {
-  width: 28px;
-  height: 34px;
+  width: 44px;
+  height: 54px;
   object-fit: contain;
   background: #fff;
-  border: 1.5px solid rgba(255,255,255,0.9);
-  border-radius: 5px;
+  border: 2px solid rgba(168,85,247,0.9);
+  border-radius: 6px;
 }
 .fusion-card .fusion-req-lv {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 800;
-  color: #fff;
+  color: #6d28d9;
   margin-top: 1px;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
-.fusion-card .fusion-plus { color: #fff; font-weight: 900; font-size: 13px; }
+.fusion-card .fusion-plus { color: #7c3aed; font-weight: 900; font-size: 18px; }
 .fusion-card .fusion-art {
   flex: 1 1 auto;
   min-height: 0;

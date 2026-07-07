@@ -546,11 +546,11 @@ export class Controller {
         class: cardCls.join(" "),
         title: `${f.name} (퓨전 — ${f.points}점 / ${f.recipe.map((r) => r.label).join(" + ")})`,
       }, [
-        // 일반 카드와 동일한 헤더 배치: 점수(좌, pc-pts 동일) + 레시피(우, 보너스 자리)
+        // 일반 카드와 동일한 헤더: 점수(좌, pc-pts 동일). 레시피는 아래 전용 띠에 크게.
         el("div", { class: "pc-head fusion-head" }, [
           el("div", { class: "pc-pts" }, [String(f.points)]),
-          recipe,
         ]),
+        recipe,
         el("div", { class: "fusion-art" }, [
           el("img", { src: fusionImg(f.romanized), alt: f.name, class: "fusion-img" }),
         ]),
