@@ -11,6 +11,8 @@ import { serialize, type Snapshot } from "@/game/snapshot";
 import type { SimResponse } from "@/simulator/worker";
 import { Rng } from "@/game/rng";
 import { COLOR_DISPLAY, MAX_RESERVED } from "@/data/balls";
+import { FUSIONS } from "@/data/cards";
+import { fusionImg } from "./assets";
 import SimWorker from "@/simulator/worker?worker&inline";
 import {
   el, ballIcon, ballChip, makeCardEl, makeMiniCard, colorCountBadge,
@@ -467,6 +469,21 @@ export class Controller {
     for (const id of this.state.board.legendary) nobleCards.append(this.boardCardEl(id));
     nobleRow.append(nobleCards);
     board.append(nobleRow);
+
+    // Fusion row (등록만, 게임 미편입)
+    const fusionRow = el("div", { class: "tier-row" });
+    fusionRow.append(el("span", { class: "tier-label" }, ["퓨전"]));
+    const fusionCards = el("div", { class: "tier-cards" });
+    for (const f of FUSIONS) {
+      fusionCards.append(el("div", { class: "fusion-card", title: `${f.name} (퓨전 — 미편입)` }, [
+        el("div", { class: "fusion-art" }, [
+          el("img", { src: fusionImg(f.romanized), alt: f.name, class: "fusion-img" }),
+        ]),
+        el("div", { class: "fusion-name" }, [f.name]),
+      ]));
+    }
+    fusionRow.append(fusionCards);
+    board.append(fusionRow);
 
     return board;
   }

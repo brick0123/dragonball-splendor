@@ -38,4 +38,9 @@ export function ballImg(romanized: string): string {
   return byKey[`balls/${romanized}`] ?? "";
 }
 
+/** 퓨전 캐릭터 이미지 URL. */
+export function fusionImg(romanized: string): string {
+  return byKey[`fusion/${romanized}`] ?? "";
+}
+
 export const HAS_ASSETS = Object.keys(byKey).length > 0;
