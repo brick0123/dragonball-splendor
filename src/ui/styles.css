@@ -361,8 +361,8 @@ button, input, select, textarea {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   cursor: default;
   --pc-accent: 235,184,210;
-  background: #f6f5f8;
-  border: 3px solid rgb(var(--pc-accent));
+  background: linear-gradient(rgba(var(--pc-accent),0.22), rgba(var(--pc-accent),0.22)), #ffffff;
+  border: 4px solid rgb(var(--pc-accent));
   box-shadow: 0 2px 9px rgba(0,0,0,0.4);
 }
 .poke-card.clickable { cursor: pointer; }
@@ -391,14 +391,15 @@ button, input, select, textarea {
   justify-content: center;   /* 진화 안내를 항상 정중앙에 고정 */
   padding: 4px 8px;
   min-height: 74px;
-  background: linear-gradient(180deg, rgba(var(--pc-accent),0.42), rgba(var(--pc-accent),0.16));
-  border-bottom: 1px solid rgba(var(--pc-accent),0.5);
+  background: linear-gradient(180deg, rgba(var(--pc-accent),0.78), rgba(var(--pc-accent),0.4));
+  border-bottom: 2px solid rgba(var(--pc-accent),0.8);
 }
 .poke-card .pc-pts {
   position: absolute;
-  left: 8px;
-  top: 4px;
-  font-size: 30px;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 42px;
   font-weight: 900;
   line-height: 1;
   color: #fff;
@@ -448,7 +449,7 @@ button, input, select, textarea {
 .poke-card .pc-cost {
   position: absolute;
   left: 6px;
-  bottom: 36px;
+  bottom: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -527,21 +528,59 @@ button, input, select, textarea {
   animation: glow-pulse 1.5s ease-in-out infinite;
 }
 
-/* 이름 배지 (하단) */
+/* ── 희귀·전설 = 초사이어인 골드 프리미엄 룩 (정적) ── */
+.poke-card.pc-rare {
+  border-color: #f4c430;
+  background: linear-gradient(rgba(255,205,60,0.32), rgba(255,180,30,0.14)), #fffdf4;
+  box-shadow: 0 0 0 2px rgba(255,200,50,0.55), 0 3px 13px rgba(180,130,0,0.45);
+}
+.poke-card.pc-legendary {
+  border-color: #ffcf2e;
+  background: linear-gradient(rgba(255,198,42,0.46), rgba(255,158,18,0.22)), #fffdf2;
+  box-shadow: 0 0 0 3px rgba(255,190,40,0.8), 0 4px 18px rgba(200,140,0,0.55);
+}
+/* 상단 코너의 정적 금빛 광택(하이라이트) */
+.poke-card.pc-rare::after,
+.poke-card.pc-legendary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  background: radial-gradient(120% 60% at 15% 0%, rgba(255,255,220,0.55), rgba(255,255,220,0) 55%);
+  mix-blend-mode: screen;
+}
+/* 등급 라벨도 골드로 */
+.poke-card.pc-rare .pc-stage,
+.poke-card.pc-legendary .pc-stage {
+  color: #7a5600;
+  background: rgba(255,224,120,0.92);
+  font-weight: 800;
+}
+
+/* 이름 배지 (우측 하단 pill, 아트 위 오버레이 — 실물 카드 우하단 이름표) */
 .poke-card .pc-name {
-  padding: 5px 8px;
+  position: absolute;
+  right: 6px;
+  bottom: 8px;
+  z-index: 3;
+  max-width: calc(100% - 44px);
+  padding: 3px 10px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   color: #2b2b33;
-  background: rgba(var(--pc-accent),0.16);
-  border-top: 1px solid rgba(var(--pc-accent),0.5);
+  background: rgba(255,255,255,0.94);
+  border: 2px solid rgb(var(--pc-accent));
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* ── 퓨전 카드 (등록만, 게임 미편입) ── */
+/* ── 퓨전 카드 (특정 캐릭터 조합 보유 시 획득) ── */
 .fusion-card {
+  position: relative;
   flex: 0 0 var(--card-width);
   width: var(--card-width);
   height: var(--card-height);
@@ -550,8 +589,47 @@ button, input, select, textarea {
   border-radius: 14px;
   overflow: hidden;
   background: linear-gradient(180deg, rgba(168,85,247,0.16), rgba(124,58,237,0.08));
-  border: 3px dashed rgba(168,85,247,0.7);
+  border: 3px solid rgba(168,85,247,0.85);
 }
+.fusion-card .fusion-pts {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  z-index: 3;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  text-shadow: -2px -2px 0 #7c3aed, 2px -2px 0 #7c3aed,
+               -2px 2px 0 #7c3aed, 2px 2px 0 #7c3aed, 0 3px 5px rgba(0,0,0,0.35);
+}
+/* 퓨전 획득 조건(레시피): 필요 캐릭터 2단계 썸네일 + 단계 라벨 */
+.fusion-card .fusion-recipe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 4px 3px;
+  background: rgba(124,58,237,0.16);
+  border-bottom: 1px dashed rgba(168,85,247,0.5);
+  z-index: 2;
+}
+.fusion-card .fusion-req { display: flex; flex-direction: column; align-items: center; }
+.fusion-card .fusion-req img {
+  width: 34px;
+  height: 40px;
+  object-fit: contain;
+  background: #fff;
+  border: 1.5px solid rgba(168,85,247,0.85);
+  border-radius: 6px;
+}
+.fusion-card .fusion-req-lv {
+  font-size: 9px;
+  font-weight: 800;
+  color: #6d28d9;
+  margin-top: 1px;
+}
+.fusion-card .fusion-plus { color: #7c3aed; font-weight: 900; font-size: 15px; }
 .fusion-card .fusion-art {
   flex: 1 1 auto;
   min-height: 0;
@@ -562,13 +640,20 @@ button, input, select, textarea {
 }
 .fusion-card .fusion-img { width: 100%; height: 100%; object-fit: contain; }
 .fusion-card .fusion-name {
+  position: absolute;
+  right: 6px;
+  bottom: 8px;
+  z-index: 3;
+  max-width: calc(100% - 44px);
   text-align: center;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
-  color: #c4b5fd;
-  padding: 6px 4px;
-  background: rgba(124,58,237,0.18);
-  border-top: 1px dashed rgba(168,85,247,0.5);
+  color: #6d28d9;
+  padding: 3px 10px;
+  background: rgba(255,255,255,0.94);
+  border: 2px solid rgba(168,85,247,0.9);
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -705,6 +790,15 @@ button, input, select, textarea {
   background: rgba(0,0,0,0.25);
   border-radius: 8px;
 }
+/* 헤더 최상단 우측에 얹히는 구슬 칩(가로 스크롤로 왔다갔다) */
+.supply-bar--top {
+  margin-left: auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 6px 8px;
+  scrollbar-width: thin;
+}
 .supply-item {
   display: flex;
   align-items: center;
@@ -726,6 +820,14 @@ button, input, select, textarea {
 .supply-item.picked {
   outline: 2px solid #ffcb05;
   background: rgba(255,203,5,0.2);
+}
+.supply-item .pick-count {
+  font-size: 12px;
+  font-weight: 900;
+  color: #ffcb05;
+  background: rgba(0,0,0,0.45);
+  border-radius: 6px;
+  padding: 0 4px;
 }
 .supply-item img {
   width: 28px;

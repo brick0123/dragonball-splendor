@@ -60,9 +60,11 @@ const COLOR_LABEL: Record<BallColor, string> = {
   red: "빨강", blue: "파랑", black: "검정", pink: "분홍", yellow: "노랑", gold: "궁극의 드래곤볼",
 };
 
-/** 구슬 색 → 작은 아이콘. 이미지 우선. */
-export function ballIcon(color: BallColor, size = 16): HTMLElement {
-  const src = ballImg(BALL_ROMAN[color]);
+/** 구슬 색 → 작은 아이콘. 이미지 우선.
+ *  stars 지정 시 레벨별 별 개수 변형(`{color}_orb_s{n}`)을 사용(카드 보너스용). */
+export function ballIcon(color: BallColor, size = 16, stars?: number): HTMLElement {
+  const key = stars && color !== "gold" ? `${BALL_ROMAN[color]}_s${stars}` : BALL_ROMAN[color];
+  const src = ballImg(key);
   if (src) {
     return el("img", { src, alt: COLOR_LABEL[color], width: size, height: size, class: "inline-block" });
   }
@@ -140,10 +142,13 @@ function evoPreview(card: CardDef): HTMLElement | null {
 /** 카드가 주는 보너스 구슬 아이콘들(보너스 색 × 개수). 실물 카드 우상단 스타일. */
 function bonusIcons(card: CardDef): HTMLElement {
   const wrap = el("div", { class: "pc-bonus" });
+  // 별 개수 = 카드 레벨. 1/2/3단계 → 1/2/3성, 희귀 → 4성, 전설 → 5성.
+  const stage = stageOf(card.tier);
+  const stars = stage > 0 ? stage : card.tier === "rare" ? 4 : 5;
   for (const c of COLORS) {
     const n = card.bonus[c];
     if (!n) continue;
-    for (let i = 0; i < n; i++) wrap.append(ballIcon(c, 22));
+    for (let i = 0; i < n; i++) wrap.append(ballIcon(c, 44, stars));
   }
   return wrap;
 }
@@ -169,10 +174,9 @@ export function makeCardEl(card: CardDef, opts: CardOpts = {}): HTMLElement {
   // Add bonus color class for background tinting
   const bonusClr = cardBonusColor(card);
   if (bonusClr) cls.push(`card-bg-${COLOR_CLASS[bonusClr]}`);
-
-  // Stage/등급 라벨
-  const stage = stageOf(card.tier);
-  const stageText = stage > 0 ? `${stage}단계` : card.tier === "rare" ? "희귀" : "전설";
+  // 희귀·전설 = 초사이어인 같은 레어 반짝임 효과
+  if (card.tier === "rare") cls.push("pc-rare");
+  else if (card.tier === "legendary") cls.push("pc-legendary");
 
   // 상단: 점수(좌) + 다음 변신 필요(가운데) + 보너스 구슬(우)
   const evo = evoPreview(card);
@@ -185,7 +189,6 @@ export function makeCardEl(card: CardDef, opts: CardOpts = {}): HTMLElement {
   // 아트
   const art = el("div", { class: "pc-art" }, [
     el("img", { src: cardImg(card.tier, card.romanized), alt: card.name, class: "card-img" }),
-    el("span", { class: "pc-stage" }, [stageText]),
   ]);
 
   const node = el("div", { class: cls.join(" "), dataset: { id: card.id } }, [

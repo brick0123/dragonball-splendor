@@ -12,7 +12,7 @@ import type { SimResponse } from "@/simulator/worker";
 import { Rng } from "@/game/rng";
 import { COLOR_DISPLAY, MAX_RESERVED } from "@/data/balls";
 import { FUSIONS } from "@/data/cards";
-import { fusionImg } from "./assets";
+import { fusionImg, cardImg } from "./assets";
 import SimWorker from "@/simulator/worker?worker&inline";
 import {
   el, ballIcon, ballChip, makeCardEl, makeMiniCard, colorCountBadge,
@@ -218,25 +218,44 @@ export class Controller {
     this.render();
   }
 
+  /** 구슬 칩 클릭 순환: 0 → 1개 → (2개 가능하면 2개, 아니면 취소) → 2개에서 재클릭 시 취소. */
   private toggleBallColor(c: Color): void {
     if (!this.ballPickActive) return;
-    const idx = this.ballPickColors.indexOf(c);
-    if (idx >= 0) {
-      this.ballPickColors.splice(idx, 1);
-    } else if (this.ballPickColors.length < 3) {
-      this.ballPickColors.push(c);
+    const count = this.ballPickColors.filter((x) => x === c).length;
+    const pairMode = this.ballPickColors.length === 2 && new Set(this.ballPickColors).size === 1;
+    const canTake2 = legalMainActions(this.state).some((a) => a.type === "take2" && a.color === c);
+
+    if (pairMode) {
+      // 이미 같은 색 2개 상태: 같은 색 클릭=취소 / 다른 색 클릭=그 색 1개로 새로 시작
+      this.ballPickColors = count === 2 ? [] : [c];
+    } else if (count === 0) {
+      // 새 색 추가 (take3 최대 3색)
+      if (this.ballPickColors.length < 3) this.ballPickColors.push(c);
+    } else {
+      // 이미 1개 잡은 색을 재클릭: 그 색만 있고 2개 가능하면 2개로, 아니면 1개 취소
+      if (this.ballPickColors.length === 1 && canTake2) {
+        this.ballPickColors = [c, c];
+      } else {
+        this.ballPickColors.splice(this.ballPickColors.indexOf(c), 1);
+      }
     }
     this.render();
   }
 
   private confirmBallPick(): void {
     if (this.ballPickColors.length === 0) return;
-    const picked = [...this.ballPickColors].sort();
-    const match = legalMainActions(this.state).find((a) => {
-      if (a.type !== "take3") return false;
-      const ac = [...a.colors].sort();
-      return ac.length === picked.length && ac.every((v, i) => v === picked[i]);
-    });
+    const legal = legalMainActions(this.state);
+    const isPair = this.ballPickColors.length === 2 && new Set(this.ballPickColors).size === 1;
+    const match = isPair
+      ? legal.find((a) => a.type === "take2" && a.color === this.ballPickColors[0])
+      : (() => {
+          const picked = [...this.ballPickColors].sort();
+          return legal.find((a) => {
+            if (a.type !== "take3") return false;
+            const ac = [...a.colors].sort();
+            return ac.length === picked.length && ac.every((v, i) => v === picked[i]);
+          });
+        })();
     if (match) {
       this.humanPlay(match);
     } else {
@@ -377,22 +396,6 @@ export class Controller {
   }
 
   private renderHeader(): HTMLElement {
-    const probs = el("div", { class: "prob-bars" });
-    for (let i = 0; i < this.state.numPlayers; i++) {
-      const p = this.state.players[i]!;
-      const pct = this.winRatesStale ? null : this.winRates[i];
-      const cls = ["prob-item"];
-      if (i === HUMAN_INDEX) cls.push("me");
-      if (i === this.state.currentPlayer && !this.state.ended) cls.push("current");
-      probs.append(el("div", { class: cls.join(" "), title: `${this.playerName(i)} ${playerPoints(p)}점` }, [
-        el("span", { class: "text-xs opacity-70" }, [this.playerName(i)]),
-        el("div", { class: "prob-bar-track" }, [
-          el("div", { class: "prob-bar-fill", style: pct != null ? `width:${Math.round(pct * 100)}%` : "width:0%" }),
-        ]),
-        el("span", { class: "text-xs font-bold" }, [pct != null ? `${Math.round(pct * 100)}%` : "…"]),
-      ]));
-    }
-
     const turnText = this.state.ended ? "게임 종료" : `${this.playerName(this.state.currentPlayer)} 차례`;
 
     const logEl = aiLogEl();
@@ -413,7 +416,6 @@ export class Controller {
         el("i", { class: "fa-solid fa-gamepad mr-1" }),
         "드래곤볼 스플렌더",
       ]),
-      probs,
       el("span", { class: "badge badge-ghost" }, [
         el("i", { class: "fa-solid fa-circle-play mr-1" }),
         turnText,
@@ -427,9 +429,6 @@ export class Controller {
 
   private renderBoard(): HTMLElement {
     const board = el("div", { class: "flex flex-col gap-2 flex-1" });
-
-    // Supply bar
-    board.append(this.renderSupplyBar());
 
     // Tier rows
     const rows: [string, Tier][] = [
@@ -475,7 +474,17 @@ export class Controller {
     fusionRow.append(el("span", { class: "tier-label" }, ["퓨전"]));
     const fusionCards = el("div", { class: "tier-cards" });
     for (const f of FUSIONS) {
-      fusionCards.append(el("div", { class: "fusion-card", title: `${f.name} (퓨전 — 미편입)` }, [
+      const recipe = el("div", { class: "fusion-recipe", title: f.recipe.map((r) => r.label).join(" + ") });
+      f.recipe.forEach((r, i) => {
+        if (i > 0) recipe.append(el("span", { class: "fusion-plus" }, ["+"]));
+        recipe.append(el("div", { class: "fusion-req" }, [
+          el("img", { src: cardImg(r.tier, r.romanized), alt: r.label }),
+          el("span", { class: "fusion-req-lv" }, [`${r.tier}단계`]),
+        ]));
+      });
+      fusionCards.append(el("div", { class: "fusion-card", title: `${f.name} (퓨전 — ${f.points}점 / ${f.recipe.map((r) => r.label).join(" + ")})` }, [
+        el("div", { class: "fusion-pts" }, [String(f.points)]),
+        recipe,
         el("div", { class: "fusion-art" }, [
           el("img", { src: fusionImg(f.romanized), alt: f.name, class: "fusion-img" }),
         ]),
@@ -495,14 +504,15 @@ export class Controller {
 
     for (const c of order) {
       const supply = this.state.supply[c];
-      const picked = this.ballPickColors.includes(c);
+      const pickedCount = this.ballPickColors.filter((x) => x === c).length;
       const cls = ["supply-item"];
-      if (picked) cls.push("picked");
+      if (pickedCount > 0) cls.push("picked");
       if (myTurn && supply > 0) cls.push("pickable");
 
       const ballEl = el("div", { class: cls.join(" ") }, [
         ballIcon(c, 22),
         el("span", { class: "font-bold" }, [String(supply)]),
+        pickedCount > 0 ? el("span", { class: "pick-count" }, [`×${pickedCount}`]) : "",
       ]);
 
       if (myTurn && supply > 0) {
@@ -525,10 +535,14 @@ export class Controller {
 
     // Ball pick flow controls
     if (this.ballPickActive) {
+      const isPair = this.ballPickColors.length === 2 && new Set(this.ballPickColors).size === 1;
+      const pickLabel = isPair
+        ? `${COLOR_DISPLAY[this.ballPickColors[0]!]} 2개`
+        : this.ballPickColors.map((c) => COLOR_DISPLAY[c]).join(", ") || "없음";
       const flow = el("div", { class: "ball-pick-flow" });
       flow.append(el("span", { class: "pick-label" }, [
         el("i", { class: "fa-solid fa-hand-pointer mr-1" }),
-        `선택: ${this.ballPickColors.map((c) => COLOR_DISPLAY[c]).join(", ") || "없음"}`,
+        `선택: ${pickLabel}`,
       ]));
       const confirmBtn = el("button", {
         class: "btn btn-xs btn-success",
@@ -546,23 +560,9 @@ export class Controller {
       wrap.append(flow);
     }
 
-    // Take2 buttons
+    // 구슬 선택 힌트 (2개씩 버튼은 제거됨)
     if (myTurn && !this.ballPickActive) {
       const legal = legalMainActions(this.state);
-      const take2s = legal.filter((a): a is Extract<MainAction, { type: "take2" }> => a.type === "take2");
-      if (take2s.length > 0) {
-        for (const a of take2s) {
-          wrap.append(el("button", {
-            class: "take2-btn",
-            onclick: () => this.humanPlay(a),
-          }, [
-            ballIcon(a.color, 14),
-            `${COLOR_DISPLAY[a.color]} 2개`,
-          ]));
-        }
-      }
-
-      // Start ball pick hint
       const hasTake3 = legal.some((a) => a.type === "take3");
       if (hasTake3) {
         wrap.append(el("span", {
@@ -618,6 +618,11 @@ export class Controller {
 
   private renderRightPanel(): HTMLElement {
     const right = el("div", { class: "game-right" });
+
+    // 구슬 칩(공급) — 우측 "나" 플레이 영역 최상단(가로 스크롤)
+    const supply = this.renderSupplyBar();
+    supply.classList.add("supply-bar--top");
+    right.append(supply);
 
     // Current player info (Me)
     right.append(this.renderMePanel());

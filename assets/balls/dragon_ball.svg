@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs><radialGradient id="r" cx="0.36" cy="0.30" r="0.85">
+  <defs><radialGradient id="g" cx="0.36" cy="0.30" r="0.85">
     <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
-    <stop offset="0.4" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/>
+    <stop offset="0.38" stop-color="#a855f7"/><stop offset="1" stop-color="#7c3aed"/>
   </radialGradient></defs>
-  <circle cx="64" cy="64" r="52" fill="#c4b5fd" fill-opacity="0.30"/>
-  <circle cx="64" cy="64" r="46" fill="url(#r)" stroke="#fff" stroke-opacity="0.55" stroke-width="4"/>
-  <text x="64" y="76" font-size="34" text-anchor="middle" fill="#fff">★</text>
+  <circle cx="64" cy="64" r="52" fill="#d8b4fe" fill-opacity="0.30"/>
+  <circle cx="64" cy="64" r="46" fill="url(#g)" stroke="#fff" stroke-opacity="0.55" stroke-width="4"/>
+  <path d="M64.0,36.0L66.0,41.3L71.6,41.5L67.2,45.0L68.7,50.5L64.0,47.4L59.3,50.5L60.8,45.0L56.4,41.5L62.0,41.3Z" fill="#fff" stroke="#a80f14" stroke-width="1.6" stroke-linejoin="round"/><path d="M47.0,48.0L49.0,53.3L54.6,53.5L50.2,57.0L51.7,62.5L47.0,59.4L42.3,62.5L43.8,57.0L39.4,53.5L45.0,53.3Z" fill="#fff" stroke="#a80f14" stroke-width="1.6" stroke-linejoin="round"/><path d="M81.0,48.0L83.0,53.3L88.6,53.5L84.2,57.0L85.7,62.5L81.0,59.4L76.3,62.5L77.8,57.0L73.4,53.5L79.0,53.3Z" fill="#fff" stroke="#a80f14" stroke-width="1.6" stroke-linejoin="round"/><path d="M64.0,60.0L66.0,65.3L71.6,65.5L67.2,69.0L68.7,74.5L64.0,71.4L59.3,74.5L60.8,69.0L56.4,65.5L62.0,65.3Z" fill="#fff" stroke="#a80f14" stroke-width="1.6" stroke-linejoin="round"/><path d="M47.0,72.0L49.0,77.3L54.6,77.5L50.2,81.0L51.7,86.5L47.0,83.4L42.3,86.5L43.8,81.0L39.4,77.5L45.0,77.3Z" fill="#fff" stroke="#a80f14" stroke-width="1.6" stroke-linejoin="round"/><path d="M81.0,72.0L83.0,77.3L88.6,77.5L84.2,81.0L85.7,86.5L81.0,83.4L76.3,86.5L77.8,81.0L73.4,77.5L79.0,77.3Z" fill="#fff" stroke="#a80f14" stroke-width="1.6" stroke-linejoin="round"/><path d="M64.0,78.0L66.0,83.3L71.6,83.5L67.2,87.0L68.7,92.5L64.0,89.4L59.3,92.5L60.8,87.0L56.4,83.5L62.0,83.3Z" fill="#fff" stroke="#a80f14" stroke-width="1.6" stroke-linejoin="round"/>
+  <ellipse cx="50" cy="44" rx="15" ry="9" fill="#fff" fill-opacity="0.4"/>
 </svg>

@@ -174,8 +174,20 @@ const LEGENDARY: readonly (readonly [name: string, color: Color, cost: ColorMap]
 ];
 
 /** 퓨전 캐릭터 — 신규 "퓨전" 칸 등록용(현재 덱/게임플레이 미편입, 이미지만 보유). */
-export const FUSIONS: readonly { readonly name: string; readonly romanized: string }[] = [
-  { name: "베지트", romanized: "vegito" },
+/** 퓨전 = 특정 캐릭터 조합 보유 시 획득(recipe = 필요 조건). */
+export const FUSIONS: readonly {
+  readonly name: string;
+  readonly romanized: string;
+  readonly points: number;
+  readonly recipe: readonly { readonly romanized: string; readonly tier: 1 | 2 | 3; readonly label: string }[];
+}[] = [
+  {
+    name: "베지트", romanized: "vegito", points: 1,
+    recipe: [
+      { romanized: "goku_ss", tier: 2, label: "2단계 손오공" },
+      { romanized: "vegeta_ss", tier: 2, label: "2단계 베지터" },
+    ],
+  },
 ];
 
 const counters: Record<string, number> = {};

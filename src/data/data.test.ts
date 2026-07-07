@@ -137,7 +137,8 @@ describe("data integrity", () => {
   });
 
   it("에셋 디렉토리 파일 수 = 예상", () => {
-    expect(assetList("balls").size).toBe(6);
+    // base 6종(빨강/파랑/검정/분홍/노랑 + 궁극의 드래곤볼) + 레벨 변형 25종(5색 × s1~s5)
+    expect(assetList("balls").size).toBe(31);
     expect(assetList("stage1").size).toBe(15);
     expect(assetList("stage2").size).toBe(15);
     expect(assetList("stage3").size).toBe(15);
