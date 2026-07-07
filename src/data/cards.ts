@@ -12,11 +12,11 @@ export const ROMAN: Record<string, string> = {
   // 2단계 (첫 변신/중급)
   "초사이어인 손오공": "goku_ss", "초사이어인 베지터": "vegeta_ss", "초사이어인2 오반": "gohan_ss2", "초사이어인 트랭크스": "trunks_ss", "최종형태 프리저": "frieza_final",
   "준완전체 셀": "cell_semi", "사악한 부우": "buu_evil", "합체 피콜로": "piccolo_fused", 자봉: "zarbon", "닥터 게로": "gero",
-  천진반: "tenshinhan", "인조인간 18호": "android18", 라디츠: "raditz", 계왕신: "kaioshin", 치치: "chichi",
+  천진반: "tenshinhan", "인조인간 18호": "android18", 오천크스: "gotenks", 계왕신: "kaioshin", 치치: "chichi",
   // 3단계 (상위)
   "초사이어인3 손오공": "goku_ss3", "초사이어인2 베지터": "vegeta_ss2", "궁극의 오반": "gohan_ultimate", "초사이어인2 트랭크스": "trunks_ss2", "풀파워 프리저": "frieza_full",
   "완전체 셀": "cell_perfect", "키드 부우": "buu_kid", "잠재능력 피콜로": "piccolo_kami", "기뉴 대장": "ginyu", "인조인간 16호": "android16",
-  크리링: "krillin", "인조인간 13호": "android13", 바독: "bardock", 대계왕신: "grand_kaioshin", 런치: "launch",
+  크리링: "krillin", "인조인간 13호": "android13", "초사이어인 오천크스": "gotenks_ss", 대계왕신: "grand_kaioshin", 런치: "launch",
   // 희귀
   우브: "uub", 무천도사: "roshi", "미스터 사탄": "hercule", 덴데: "dende", 바비디: "babidi",
   // 전설 (유니크)
@@ -45,7 +45,7 @@ const LINES: readonly LineSpec[] = [
   { color: "black", s1: "인조인간 19호", s2: "닥터 게로", s3: "인조인간 16호" },
   { color: "blue", s1: "야무치", s2: "천진반", s3: "크리링" },
   { color: "yellow", s1: "인조인간 17호", s2: "인조인간 18호", s3: "인조인간 13호" },
-  { color: "red", s1: "손오천", s2: "라디츠", s3: "바독" },
+  { color: "red", s1: "손오천", s2: "오천크스", s3: "초사이어인 오천크스" },
   { color: "pink", s1: "북계왕", s2: "계왕신", s3: "대계왕신" },
   { color: "black", s1: "부르마", s2: "치치", s3: "런치" },
 ];
@@ -176,7 +176,6 @@ const LEGENDARY: readonly (readonly [name: string, color: Color, cost: ColorMap]
 /** 퓨전 캐릭터 — 신규 "퓨전" 칸 등록용(현재 덱/게임플레이 미편입, 이미지만 보유). */
 export const FUSIONS: readonly { readonly name: string; readonly romanized: string }[] = [
   { name: "베지트", romanized: "vegito" },
-  { name: "오천크스", romanized: "gotenks" },
 ];
 
 const counters: Record<string, number> = {};
