@@ -1,7 +1,7 @@
 // 순수 DOM 빌더. 상태 변경 없음 — controller 가 이벤트를 소유한다.
 // Tailwind CSS + DaisyUI 클래스를 적극 활용. Font Awesome 아이콘으로 토큰/보너스 표현.
-import type { BallColor, CardDef, Color } from "@/game/types";
-import { COLORS, stageOf } from "@/game/types";
+import type { BallColor, CardDef, Color, Tier } from "@/game/types";
+import { COLORS, stageOf, isNoble } from "@/game/types";
 import { ROMAN } from "@/data/cards";
 import { cardImg, ballImg } from "./assets";
 
@@ -95,7 +95,8 @@ export function colorCountBadge(c: Color, n: number, title: string): HTMLElement
 
 // ── Cost chips (색별 필요 수 + 구슬 아이콘, 세로 스택) ─────────────────
 
-/** 카드 비용 칩들(원가): 색별 [숫자 + 구슬 아이콘]. 실물 카드의 '잡기' 열 스타일. */
+/** 카드 비용 칩들(원가): 색별 [숫자 + 구슬 아이콘]. 실물 카드의 '잡기' 열 스타일.
+ *  희귀/전설 카드는 드래곤볼(마스터) 1개가 추가로 필요하므로 보라색 드래곤볼 칩을 표시한다. */
 export function costPips(card: CardDef): HTMLElement {
   const wrap = el("div", { class: "pc-cost" });
   for (const c of COLORS) {
@@ -106,7 +107,31 @@ export function costPips(card: CardDef): HTMLElement {
       ballIcon(c, 15),
     ]));
   }
+  if (isNoble(card.tier)) {
+    wrap.append(el("div", { class: "pc-chip gold", title: "궁극의 드래곤볼 1개 필요" }, [
+      el("span", { class: "pc-chip-n" }, ["1"]),
+      ballIcon("gold", 15),
+    ]));
+  }
   return wrap;
+}
+
+/** 다음 변신(진화) 미리보기(상단 가운데): 다음 단계 이미지 ↓ 필요한 보너스 구슬(개수+색). 1·2단계만. */
+function evoPreview(card: CardDef): HTMLElement | null {
+  if (!card.evolvesTo || !card.evoCost) return null;
+  const nextTier: Tier = card.tier === 1 ? 2 : 3;
+  const costEls: (Node | string)[] = [];
+  for (const c of COLORS) {
+    const n = card.evoCost[c];
+    if (!n) continue;
+    costEls.push(String(n), ballIcon(c, 14));
+  }
+  const nextName = ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo;
+  return el("div", { class: "pc-evo", title: `변신 → ${nextName} (필요: 위 색 보너스)` }, [
+    el("img", { src: cardImg(nextTier, card.evolvesTo), alt: nextName, class: "pc-evo-img" }),
+    el("i", { class: "fa-solid fa-angles-down pc-evo-arr" }),
+    el("div", { class: "pc-evo-cost" }, costEls),
+  ]);
 }
 
 /** 카드가 주는 보너스 구슬 아이콘들(보너스 색 × 개수). 실물 카드 우상단 스타일. */
@@ -146,9 +171,11 @@ export function makeCardEl(card: CardDef, opts: CardOpts = {}): HTMLElement {
   const stage = stageOf(card.tier);
   const stageText = stage > 0 ? `${stage}단계` : card.tier === "rare" ? "희귀" : "전설";
 
-  // 상단: 점수(좌) + 보너스 구슬(우)
+  // 상단: 점수(좌) + 다음 변신 필요(가운데) + 보너스 구슬(우)
+  const evo = evoPreview(card);
   const head = el("div", { class: "pc-head" }, [
     el("div", { class: "pc-pts" }, [card.points ? String(card.points) : ""]),
+    evo ?? el("div", { class: "pc-evo-spacer" }),
     bonusIcons(card),
   ]);
 
@@ -175,16 +202,8 @@ export function makeCardEl(card: CardDef, opts: CardOpts = {}): HTMLElement {
     node.append(btn);
   }
 
-  if (opts.evoBtn) {
-    const evo = opts.evoBtn;
-    const btn = el("button", {
-      class: "evo-btn",
-      title: `변신 → ${evo.targetName} (+${evo.pointsGain}점)`,
-      dataset: { sourceId: evo.sourceId },
-    }, [`→${evo.pointsGain}P`]);
-    btn.addEventListener("click", (e) => { e.stopPropagation(); });
-    node.append(btn);
-  }
+  // 변신 가능 상태면 미리보기 블록을 강조
+  if (opts.evoBtn) node.classList.add("evo-ready");
 
   if (opts.onclick) node.addEventListener("click", opts.onclick);
   return node;

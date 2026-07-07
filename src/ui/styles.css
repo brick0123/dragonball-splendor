@@ -386,8 +386,9 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3px 8px;
-  min-height: 42px;
+  gap: 4px;
+  padding: 4px 8px;
+  min-height: 60px;
   background: linear-gradient(180deg, rgba(var(--pc-accent),0.42), rgba(var(--pc-accent),0.16));
   border-bottom: 1px solid rgba(var(--pc-accent),0.5);
 }
@@ -470,6 +471,43 @@ button, input, select, textarea {
 .poke-card .pc-chip.black  { background: #33363d; }
 .poke-card .pc-chip.pink   { background: #e0559a; }
 .poke-card .pc-chip.yellow { background: #e0a91e; }
+.poke-card .pc-chip.gold   { background: #8b5cf6; }  /* 궁극의 드래곤볼(마스터) */
+
+/* 다음 변신 미리보기 (상단 가운데): 다음체 썸네일 ↓ 필요 보너스(개수+색) */
+.poke-card .pc-evo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 5px 3px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #a855f7, #7c3aed);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.poke-card .pc-evo-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #fff;
+  border: 1.5px solid rgba(255,255,255,0.9);
+}
+.poke-card .pc-evo-arr { color: #fff; font-size: 9px; line-height: 1; opacity: 0.95; }
+.poke-card .pc-evo-cost {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+}
+.poke-card .pc-evo-cost img { width: 14px; height: 14px; }
+.poke-card .pc-evo-spacer { flex: 0 0 1px; }
+.poke-card.evo-ready .pc-evo {
+  outline: 2px solid #ffd93b;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
 
 /* 이름 배지 (하단) */
 .poke-card .pc-name {
