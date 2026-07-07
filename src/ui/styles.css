@@ -225,7 +225,7 @@ button, input, select, textarea {
   --ball-yellow: rgb(var(--ball-yellow-rgb));
   --ball-gold: rgb(var(--ball-gold-rgb));
   /* 신용카드 비율(54:85.6=1:1.585). 창 너비에 맞춰 4장이 가로 스크롤 없이 들어가도록 반응형. */
-  --card-width: clamp(116px, calc((100vw - 720px) / 4), 250px);
+  --card-width: clamp(116px, calc((100vw - 760px) / 4), 250px);
   --card-height: calc(var(--card-width) * 1.585);
   --card-image-height: 150px;
   --mini-card-width: 72px;
@@ -252,8 +252,8 @@ button, input, select, textarea {
 }
 
 .game-right {
-  flex: 0 0 clamp(340px, 28vw, 460px);
-  min-width: 330px;
+  flex: 0 0 clamp(380px, 34vw, 560px);
+  min-width: 360px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
