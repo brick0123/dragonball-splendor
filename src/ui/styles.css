@@ -252,8 +252,8 @@ button, input, select, textarea {
 }
 
 .game-right {
-  flex: 0 0 clamp(430px, 36vw, 600px);
-  min-width: 400px;
+  flex: 0 0 clamp(340px, 28vw, 460px);
+  min-width: 330px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -790,48 +790,90 @@ button, input, select, textarea {
   background: rgba(0,0,0,0.25);
   border-radius: 8px;
 }
-/* 헤더 최상단 우측에 얹히는 구슬 칩(가로 스크롤로 왔다갔다) */
+/* 우측 "나" 영역 최상단 구슬 바 — [구슬 3×2 그리드] + [✅], 가로 스크롤 없음 */
 .supply-bar--top {
-  margin-left: auto;
+  width: 100%;
+  margin-left: 0;
   flex-wrap: nowrap;
-  overflow-x: auto;
+  overflow: visible;
   max-width: 100%;
-  padding: 6px 8px;
-  scrollbar-width: thin;
+  gap: 8px;
+  padding: 8px 10px;
+  align-items: stretch;
+}
+/* 구슬 6개: 위 3 / 아래 3 균형 배치 */
+.supply-balls {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.supply-balls .supply-item {
+  justify-content: center;
 }
 .supply-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
-  padding: 5px 8px;
-  border-radius: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 2px solid transparent; /* picked 시 색만 바뀌어 크기 변화 없음 */
   cursor: default;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+/* ✅ 확정 버튼: 선택한 구슬 가져오기 */
+.supply-confirm {
+  cursor: pointer;
+  justify-content: center;
+  min-width: 44px;
+  font-size: 22px;
+  line-height: 1;
+  color: rgba(255,255,255,0.45);
+  border-color: rgba(255,255,255,0.18);
+}
+.supply-confirm.ready {
+  color: #fff;
+  background: #22c55e;
+  border-color: #16a34a;
+  box-shadow: 0 0 10px rgba(34,197,94,0.7);
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+.supply-confirm.ready:hover {
+  transform: scale(1.1);
+}
+.supply-confirm.idle:hover {
+  color: rgba(255,255,255,0.55);
 }
 .supply-item.pickable {
   cursor: pointer;
 }
 .supply-item.pickable:hover {
   background: rgba(255,255,255,0.15);
-  transform: scale(1.1);
 }
 .supply-item.picked {
-  outline: 2px solid #ffcb05;
+  border-color: #ffcb05;
   background: rgba(255,203,5,0.2);
 }
+/* 선택 수량 배지: 절대 위치로 띄워서 아이템 너비를 바꾸지 않음(밀림 방지) */
 .supply-item .pick-count {
-  font-size: 12px;
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  font-size: 11px;
   font-weight: 900;
   color: #ffcb05;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0,0,0,0.75);
   border-radius: 6px;
   padding: 0 4px;
+  pointer-events: none;
 }
 .supply-item img {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
 }
 
 /* ── Ball pick flow ───────────────────────────────── */

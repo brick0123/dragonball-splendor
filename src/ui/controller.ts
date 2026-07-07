@@ -264,12 +264,6 @@ export class Controller {
     }
   }
 
-  private cancelBallPick(): void {
-    this.ballPickActive = false;
-    this.ballPickColors = [];
-    this.render();
-  }
-
   // ── Card click ──
 
   private onCardClick(id: string): void {
@@ -499,6 +493,7 @@ export class Controller {
 
   private renderSupplyBar(): HTMLElement {
     const wrap = el("div", { class: "supply-bar" });
+    const balls = el("div", { class: "supply-balls" });
     const order: Color[] = ["red", "blue", "black", "pink", "yellow"];
     const myTurn = this.isHumanTurn() && this.phase === "human-action";
 
@@ -510,7 +505,7 @@ export class Controller {
       if (myTurn && supply > 0) cls.push("pickable");
 
       const ballEl = el("div", { class: cls.join(" ") }, [
-        ballIcon(c, 22),
+        ballIcon(c, 30),
         el("span", { class: "font-bold" }, [String(supply)]),
         pickedCount > 0 ? el("span", { class: "pick-count" }, [`×${pickedCount}`]) : "",
       ]);
@@ -522,57 +517,40 @@ export class Controller {
         });
       }
 
-      wrap.append(ballEl);
+      balls.append(ballEl);
     }
 
     // Gold (not pickable via take3)
     const goldSupply = this.state.supply.gold;
     const goldEl = el("div", { class: "supply-item" }, [
-      ballIcon("gold", 22),
+      ballIcon("gold", 30),
       el("span", { class: "font-bold" }, [String(goldSupply)]),
     ]);
-    wrap.append(goldEl);
+    balls.append(goldEl);
 
-    // Ball pick flow controls
-    if (this.ballPickActive) {
-      const isPair = this.ballPickColors.length === 2 && new Set(this.ballPickColors).size === 1;
-      const pickLabel = isPair
-        ? `${COLOR_DISPLAY[this.ballPickColors[0]!]} 2개`
-        : this.ballPickColors.map((c) => COLOR_DISPLAY[c]).join(", ") || "없음";
-      const flow = el("div", { class: "ball-pick-flow" });
-      flow.append(el("span", { class: "pick-label" }, [
-        el("i", { class: "fa-solid fa-hand-pointer mr-1" }),
-        `선택: ${pickLabel}`,
-      ]));
-      const confirmBtn = el("button", {
-        class: "btn btn-xs btn-success",
-        onclick: () => this.confirmBallPick(),
+    wrap.append(balls);
+
+    // 확정(✅) 버튼 — 선택한 구슬을 가져온다. 구슬 아이템과 동일 크기.
+    if (myTurn) {
+      const canConfirm = this.ballPickActive && this.ballPickColors.length > 0;
+      const confirmCls = ["supply-item", "supply-confirm"];
+      if (canConfirm) confirmCls.push("ready");
+      else confirmCls.push("idle");
+      const confirmEl = el("div", {
+        class: confirmCls.join(" "),
+        title: "선택한 구슬 가져오기",
       }, [
-        el("i", { class: "fa-solid fa-check mr-1" }),
-        "가져오기",
+        el("i", { class: "fa-solid fa-check" }),
       ]);
-      if (this.ballPickColors.length === 0) confirmBtn.setAttribute("disabled", "");
-      flow.append(confirmBtn);
-      flow.append(el("button", {
-        class: "btn btn-xs btn-ghost",
-        onclick: () => this.cancelBallPick(),
-      }, ["취소"]));
-      wrap.append(flow);
-    }
-
-    // 구슬 선택 힌트 (2개씩 버튼은 제거됨)
-    if (myTurn && !this.ballPickActive) {
-      const legal = legalMainActions(this.state);
-      const hasTake3 = legal.some((a) => a.type === "take3");
-      if (hasTake3) {
-        wrap.append(el("span", {
-          class: "text-xs text-warning cursor-pointer opacity-70 hover:opacity-100",
-          onclick: () => this.startBallPick(),
-        }, [
-          el("i", { class: "fa-solid fa-hand-pointer mr-1" }),
-          "구슬 선택 →",
-        ]));
-      }
+      confirmEl.addEventListener("click", () => {
+        if (this.ballPickActive && this.ballPickColors.length > 0) {
+          this.confirmBallPick();
+        } else {
+          this.setMsg({ kind: "bad", text: "먼저 가져올 구슬을 선택하세요." });
+          this.render();
+        }
+      });
+      wrap.append(confirmEl);
     }
 
     return wrap;
