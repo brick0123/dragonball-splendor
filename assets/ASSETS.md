@@ -67,10 +67,12 @@ assets/
  | 블랙 | 천진반 `tenshinhan` | 사공권 천진반 `tenshinhan_4arms` | 신기공포 천진반 `tenshinhan_max` |
 
 ## 현재 상태
- - **캐릭터 45종**: [Dragon Ball API](https://dragonball-api.com) 의 캐릭터/변신 렌더(.webp)를 `scripts/import-images.mjs` 로 배치. (개인·비상업 용도)
- - **placeholder(SVG) 10종**: API 에 없는 캐릭터 — `baby`/`baby_super`/`baby_super2`(베이비), `goten`/`goten_ss`/`goten_ss2`(손오천), `shenron`·`porunga`·`omega_shenron`·`uub`. 실제 이미지를 `incoming/` 에 넣고 `node scripts/import-images.mjs incoming` 로 교체 가능.
+ - **캐릭터 55종 전부 실제 이미지** (개인·비상업 용도):
+   - 45종: [Dragon Ball API](https://dragonball-api.com) 캐릭터/변신 렌더(.webp)
+   - 10종: [Dragon Ball Fandom](https://dragonball.fandom.com) 이미지 — API 에 없는 베이비/손오천/신룡/폴룽가/오메가 흑성룡/우브. (베이비·손오천 라인은 대표 이미지를 3단계 공유)
+   - `scripts/import-images.mjs` 로 배치.
  - **구슬 6종**: `scripts/gen-placeholders.mjs` 로 생성한 색상 구슬 SVG.
- - 라인 색 배경 + 캐릭터명 placeholder 는 `scripts/gen-placeholders.mjs` 로 재생성 가능.
+ - 이미지 교체: `incoming/` 에 romanized 파일명으로 넣고 `node scripts/import-images.mjs incoming`. placeholder 재생성은 `scripts/gen-placeholders.mjs`.
 
 ## 이미지 교체 시 체크리스트
  - [ ] 카드 256×256, 구슬 128×128 권장 (CSS 스케일링되므로 비율만 맞으면 됨)
