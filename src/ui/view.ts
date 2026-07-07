@@ -121,13 +121,16 @@ function evoPreview(card: CardDef): HTMLElement | null {
   if (!card.evolvesTo || !card.evoCost) return null;
   const nextTier: Tier = card.tier === 1 ? 2 : 3;
   const costEls: (Node | string)[] = [];
+  let evoColor: Color | undefined;
   for (const c of COLORS) {
     const n = card.evoCost[c];
     if (!n) continue;
+    if (!evoColor) evoColor = c;
     costEls.push(String(n), ballIcon(c, 14));
   }
   const nextName = ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo;
-  return el("div", { class: "pc-evo", title: `변신 → ${nextName} (필요: 위 색 보너스)` }, [
+  const colorCls = evoColor ? COLOR_CLASS[evoColor] : "";
+  return el("div", { class: `pc-evo ${colorCls}`, title: `변신 → ${nextName} (필요: 위 색 보너스)` }, [
     el("img", { src: cardImg(nextTier, card.evolvesTo), alt: nextName, class: "pc-evo-img" }),
     el("i", { class: "fa-solid fa-angles-down pc-evo-arr" }),
     el("div", { class: "pc-evo-cost" }, costEls),

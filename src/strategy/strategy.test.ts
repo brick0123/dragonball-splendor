@@ -28,7 +28,7 @@ describe("strategy basics", () => {
   it("cardValue: 변신 다음단계 카드에 보너스 가산", () => {
     const s = createGame(1, 4);
     const goku = findCard((c) => c.name === "손오공");
-    const goku_ss = findCard((c) => c.name === "초사이어인 오공");
+    const goku_ss = findCard((c) => c.name === "초사이어인 손오공");
     s.players[0]!.scored = [goku.id];
     const goal: Color[] = ["blue", "yellow", "red"];
     const vNext = cardValue(s.players[0]!, goku_ss, goal);
@@ -62,7 +62,7 @@ describe("strategy basics", () => {
     const s = createGame(1, 4);
     s.currentPlayer = 0;
     const goku = findCard((c) => c.name === "손오공");
-    const goku_ss = findCard((c) => c.name === "초사이어인 오공");
+    const goku_ss = findCard((c) => c.name === "초사이어인 손오공");
     s.players[0]!.scored = [goku.id];
     s.players[0]!.bonus = { red: 0, blue: 0, black: 0, pink: 0, yellow: 3 };
     s.board[2] = [goku_ss.id];

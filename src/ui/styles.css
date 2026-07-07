@@ -224,9 +224,9 @@ button, input, select, textarea {
   --ball-pink: rgb(var(--ball-pink-rgb));
   --ball-yellow: rgb(var(--ball-yellow-rgb));
   --ball-gold: rgb(var(--ball-gold-rgb));
-  /* 실물 신용카드(ISO ID-1) 세로 배치 1:1 — 54mm × 85.6mm */
-  --card-width: 53.98mm;
-  --card-height: 85.6mm;
+  /* 실물 신용카드(ISO ID-1) 세로 배치 1:1 비율 (54:85.6). 고DPI 화면 보정해 확대. */
+  --card-width: 258px;
+  --card-height: 409px;
   --card-image-height: 150px;
   --mini-card-width: 72px;
   --scored-stack-overlap: 48px;
@@ -385,26 +385,35 @@ button, input, select, textarea {
 
 /* 상단: 점수(좌) + 보너스 구슬(우) */
 .poke-card .pc-head {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  justify-content: center;   /* 진화 안내를 항상 정중앙에 고정 */
   padding: 4px 8px;
-  min-height: 60px;
+  min-height: 74px;
   background: linear-gradient(180deg, rgba(var(--pc-accent),0.42), rgba(var(--pc-accent),0.16));
   border-bottom: 1px solid rgba(var(--pc-accent),0.5);
 }
 .poke-card .pc-pts {
+  position: absolute;
+  left: 8px;
+  top: 4px;
   font-size: 30px;
   font-weight: 900;
   line-height: 1;
   color: #fff;
-  min-width: 12px;
   text-shadow: -2px -2px 0 rgb(var(--pc-accent)), 2px -2px 0 rgb(var(--pc-accent)),
                -2px 2px 0 rgb(var(--pc-accent)), 2px 2px 0 rgb(var(--pc-accent)),
                0 3px 5px rgba(0,0,0,0.3);
 }
-.poke-card .pc-bonus { display: flex; align-items: center; gap: 3px; }
+.poke-card .pc-bonus {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
 .poke-card .pc-bonus img { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
 
 /* 아트 영역 */
@@ -484,16 +493,22 @@ button, input, select, textarea {
   gap: 1px;
   padding: 2px 5px 3px;
   border-radius: 9px;
-  background: linear-gradient(180deg, #a855f7, #7c3aed);
+  background: linear-gradient(180deg, #6b7280, #4b5563);
   box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
+/* 진화에 필요한 구슬 색으로 표시 */
+.poke-card .pc-evo.red    { background: linear-gradient(180deg, #e85555, #c62222); }
+.poke-card .pc-evo.blue   { background: linear-gradient(180deg, #3f7ef2, #1c4fc0); }
+.poke-card .pc-evo.black  { background: linear-gradient(180deg, #4a4d57, #282a31); }
+.poke-card .pc-evo.pink   { background: linear-gradient(180deg, #ff77c8, #e23aa0); }
+.poke-card .pc-evo.yellow { background: linear-gradient(180deg, #f2ce55, #d6a516); }
 .poke-card .pc-evo-img {
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 46px;
   border-radius: 6px;
-  object-fit: cover;
+  object-fit: contain;
   background: #fff;
-  border: 1.5px solid rgba(255,255,255,0.9);
+  border: 1.5px solid rgba(255,255,255,0.95);
 }
 .poke-card .pc-evo-arr { color: #fff; font-size: 9px; line-height: 1; opacity: 0.95; }
 .poke-card .pc-evo-cost {

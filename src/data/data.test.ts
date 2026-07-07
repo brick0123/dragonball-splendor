@@ -40,8 +40,8 @@ describe("data integrity", () => {
     expect(friezaFinal.map((c) => c.cost)).toContainEqual({ blue: 4, pink: 4, yellow: 1 });
     expect(friezaFinal.map((c) => c.cost)).toContainEqual({ black: 6 });
 
-    const legendarySaiyan = deckOf(3).find((c) => c.name === "전설의 초사이어인");
-    expect(legendarySaiyan?.cost).toEqual({ blue: 6, black: 4 });
+    const line9s3 = deckOf(3).find((c) => c.name === "기뉴 대장");
+    expect(line9s3?.cost).toEqual({ blue: 6, black: 4 });
   });
 
   it("모든 id 고유", () => {

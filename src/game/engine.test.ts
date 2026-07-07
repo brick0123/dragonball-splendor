@@ -209,7 +209,7 @@ describe("applyMainAction", () => {
 describe("evolution", () => {
   it("evoCost 미충족 시 변신 불가", () => {
     const goku = findCard((c) => c.name === "손오공");
-    const goku_ss = findCard((c) => c.name === "초사이어인 오공");
+    const goku_ss = findCard((c) => c.name === "초사이어인 손오공");
     const s = soloState({
       scored: [goku.id], board: [goku_ss.id], bonus: { yellow: 2 }, // need yellow3
     });
@@ -218,7 +218,7 @@ describe("evolution", () => {
 
   it("변신: source 제거·target 추가, 보너스 불변, 점수 증분, 변신수+1", () => {
     const goku = findCard((c) => c.name === "손오공");
-    const goku_ss = findCard((c) => c.name === "초사이어인 오공");
+    const goku_ss = findCard((c) => c.name === "초사이어인 손오공");
     const s = soloState({
       scored: [goku.id], board: [goku_ss.id], bonus: { yellow: 3 },
     });
@@ -228,14 +228,14 @@ describe("evolution", () => {
     expect(p.scored).not.toContain(goku.id);
     expect(p.scored).toContain(goku_ss.id);
     expect(p.bonus).toEqual(bonusBefore); // 변신 시 보너스 불변
-    expect(playerPoints(p)).toBe(3); // 손오공1 → 초사이어인 오공3
+    expect(playerPoints(p)).toBe(3); // 손오공1 → 초사이어인 손오공3
     expect(p.evolutions).toBe(1);
     expect(s.evolvedThisTurn).toBe(true);
   });
 
   it("변신는 턴당 1회", () => {
     const goku = findCard((c) => c.name === "손오공");
-    const goku_ss = findCard((c) => c.name === "초사이어인 오공");
+    const goku_ss = findCard((c) => c.name === "초사이어인 손오공");
     const s = soloState({
       scored: [goku.id], board: [goku_ss.id], bonus: { yellow: 3 },
     });
@@ -246,7 +246,7 @@ describe("evolution", () => {
 
   it("보관된 target 으로도 변신 가능", () => {
     const goku = findCard((c) => c.name === "손오공");
-    const goku_ss = findCard((c) => c.name === "초사이어인 오공");
+    const goku_ss = findCard((c) => c.name === "초사이어인 손오공");
     const s = soloState({
       scored: [goku.id], reserved: [goku_ss.id], bonus: { yellow: 3 },
     });
@@ -294,7 +294,7 @@ describe("limits", () => {
 
   it("엔진 적용 단계에서 불법 변신를 거부", () => {
     const goku = findCard((c) => c.name === "손오공");
-    const goku_ss = findCard((c) => c.name === "초사이어인 오공");
+    const goku_ss = findCard((c) => c.name === "초사이어인 손오공");
     const s = soloState({
       scored: [goku.id], board: [goku_ss.id], bonus: { yellow: 2 },
     });
@@ -310,9 +310,9 @@ describe("end & winner", () => {
     const s = createGame(1, 2);
     s.currentPlayer = 0;
     s.startingPlayer = 0;
-    // 플레이어0 에 18점짜리 점수 카드 4장(초사이어인4 오공×3 + 초사이어인4 베지터 같은 대량) 세팅은 어려우니
+    // 플레이어0 에 18점짜리 점수 카드 4장(초사이어인3 손오공×3 + 초사이어인4 베지터 같은 대량) 세팅은 어려우니
     // 점수 직접 검증: 18점 도달 플래그 확인은 finishTurn 경유
-    const goku_ss4 = findCard((c) => c.name === "초사이어인4 오공"); // 5점
+    const goku_ss4 = findCard((c) => c.name === "초사이어인3 손오공"); // 5점
     s.players[0]!.scored = [goku_ss4.id, goku_ss4.id, goku_ss4.id, goku_ss4.id]; // 20점
     finishTurn(s); // p0 가 20점 → triggeredEnd
     expect(s.triggeredEnd).toBe(true);
@@ -325,7 +325,7 @@ describe("end & winner", () => {
 
   it("rankPlayers: 점수 → 변신수 → 카드수 tie-breaker", () => {
     const s = createGame(1, 3);
-    const five = findCard((c) => c.name === "초사이어인4 오공").id;
+    const five = findCard((c) => c.name === "초사이어인3 손오공").id;
     const zero = findCard((c) => c.name === "불완전체 셀").id; // 0점
     // p0: 10점, 변신2 ; p1: 10점, 변신1 ; p2: 10점, 변신1, 카드 더 많음
     s.players[0]!.scored = [five, five]; s.players[0]!.evolutions = 2;

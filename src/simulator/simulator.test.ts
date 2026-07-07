@@ -16,7 +16,7 @@ describe("snapshot round-trip", () => {
   it("serialize → deserialize → 동일 상태(규칙 관련 필드)", () => {
     const s = createGame(42, 4);
     // 몇 수 진행
-    s.players[0]!.scored = [findCard((c) => c.name === "초사이어인4 오공").id];
+    s.players[0]!.scored = [findCard((c) => c.name === "초사이어인3 손오공").id];
     s.players[0]!.balls.red = 3;
     s.supply.red = 4;
     s.currentPlayer = 2;
@@ -64,7 +64,7 @@ describe("simulateWinRates", () => {
     s.currentPlayer = 1;
     s.startingPlayer = 1;
     // 플레이어0 에 3단계 카드 3장(15점)+2단계(3점) = 18점 근접 세팅으로 강세 부여
-    const five = findCard((c) => c.name === "초사이어인4 오공").id;
+    const five = findCard((c) => c.name === "초사이어인3 손오공").id;
     const four = findCard((c) => c.name === "완전체 셀").id; // 4점
     s.players[0]!.scored = [five, five, five, four]; // 19점
     // 보드에 플레이어0 이 바로 살 수 있는 저비용 카드 제거는 어려우니, 강한 우위만 검증
