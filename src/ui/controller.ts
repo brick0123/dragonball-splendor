@@ -11,7 +11,7 @@ import { serialize, type Snapshot } from "@/game/snapshot";
 import type { SimResponse } from "@/simulator/worker";
 import { Rng } from "@/game/rng";
 import { COLOR_DISPLAY, MAX_RESERVED } from "@/data/balls";
-import { FUSIONS } from "@/data/cards";
+import { FUSIONS, FUSION_BY_ROMANIZED } from "@/data/cards";
 import { fusionImg, cardImg } from "./assets";
 import SimWorker from "@/simulator/worker?worker&inline";
 import {
@@ -124,6 +124,7 @@ export class Controller {
     if (!pick) { this.advance(); return; }
     const aiIdx = this.state.currentPlayer;
     const desc = this.describeAction(aiIdx, pick.action);
+    const fusesBefore = this.state.players[aiIdx]!.fusions.slice();
     applyMainAction(this.state, pick.action);
     if (pick.evolution) {
       applyEvolution(this.state, pick.evolution);
@@ -131,6 +132,11 @@ export class Controller {
       showEvolutionToast(targetCard.name);
     }
     this.pushAiLog(desc);
+    for (const r of this.state.players[aiIdx]!.fusions) {
+      if (fusesBefore.includes(r)) continue;
+      const f = FUSION_BY_ROMANIZED[r];
+      if (f) this.pushAiLog(`${this.playerName(aiIdx)}: ${f.name} 퓨전 획득!`);
+    }
     this.advance();
   }
 
@@ -187,7 +193,9 @@ export class Controller {
       }
     }
 
+    const fusesBefore = this.state.players[HUMAN_INDEX]!.fusions.slice();
     applyMainAction(this.state, action);
+    this.notifyHumanFusion(fusesBefore);
     this.ballPickActive = false;
     this.ballPickColors = [];
     const evos = legalEvolutions(this.state);
@@ -203,11 +211,26 @@ export class Controller {
   private humanEvolve(evo: Evolution | null): void {
     if (this.phase !== "human-evolve") return;
     if (evo) {
+      const fusesBefore = this.state.players[HUMAN_INDEX]!.fusions.slice();
       applyEvolution(this.state, evo);
       const targetCard = cardOf(evo.targetId);
       showEvolutionToast(targetCard.name);
+      this.notifyHumanFusion(fusesBefore);
     }
     this.advance();
+  }
+
+  /** 이번 액션으로 새로 획득한 퓨전을 토스트로 알린다. */
+  private notifyHumanFusion(before: string[]): void {
+    const me = this.state.players[HUMAN_INDEX]!;
+    for (const r of me.fusions) {
+      if (before.includes(r)) continue;
+      const f = FUSION_BY_ROMANIZED[r];
+      if (f) {
+        showCaptureToast(`${f.name} 퓨전!`);
+        this.setMsg({ kind: "ok", text: `퓨전 성공! ${f.name}을(를) 획득했습니다 (+${f.points}점).` });
+      }
+    }
   }
 
   // ── Ball pick flow ──
@@ -315,6 +338,42 @@ export class Controller {
 
   private cardBonusColor(card: CardDef): Color | null {
     return COLORS.find((c) => (card.bonus[c] ?? 0) > 0) ?? null;
+  }
+
+  /** 해당 퓨전을 이미 획득한 플레이어 인덱스(없으면 null). */
+  private fusionOwner(romanized: string): number | null {
+    for (let i = 0; i < this.state.numPlayers; i++) {
+      if (this.state.players[i]!.fusions.includes(romanized)) return i;
+    }
+    return null;
+  }
+
+  /** 사람이 해당 퓨전 레시피(scored 카드 조합)를 충족하는지. */
+  private humanHasFusionRecipe(romanized: string): boolean {
+    const f = FUSION_BY_ROMANIZED[romanized];
+    if (!f) return false;
+    const me = this.state.players[HUMAN_INDEX]!;
+    return f.recipe.every((req) =>
+      me.scored.some((id) => {
+        const c = cardOf(id);
+        return c.romanized === req.romanized && c.tier === req.tier;
+      }),
+    );
+  }
+
+  /** 플레이어가 획득한 퓨전 썸네일 행(없으면 null). */
+  private renderPlayerFusions(p: PlayerState, size: number): HTMLElement | null {
+    if (p.fusions.length === 0) return null;
+    const wrap = el("div", { class: "fusion-owned-row" });
+    for (const r of p.fusions) {
+      const f = FUSION_BY_ROMANIZED[r];
+      if (!f) continue;
+      wrap.append(el("div", { class: "fusion-owned", title: `${f.name} 퓨전 (+${f.points}점)` }, [
+        el("img", { src: fusionImg(f.romanized), alt: f.name, width: size, height: size }),
+        el("span", { class: "fusion-owned-pts" }, [`+${f.points}`]),
+      ]));
+    }
+    return wrap;
   }
 
   private colorTotal(p: PlayerState, c: Color): number {
@@ -463,11 +522,14 @@ export class Controller {
     nobleRow.append(nobleCards);
     board.append(nobleRow);
 
-    // Fusion row (등록만, 게임 미편입)
+    // Fusion row — 조건 충족 시 자동 획득(턴/진화 미소모, 단 한 장)
     const fusionRow = el("div", { class: "tier-row" });
     fusionRow.append(el("span", { class: "tier-label" }, ["퓨전"]));
     const fusionCards = el("div", { class: "tier-cards" });
     for (const f of FUSIONS) {
+      const owner = this.fusionOwner(f.romanized);
+      const humanEligible = owner === null && this.humanHasFusionRecipe(f.romanized);
+
       const recipe = el("div", { class: "fusion-recipe", title: f.recipe.map((r) => r.label).join(" + ") });
       f.recipe.forEach((r, i) => {
         if (i > 0) recipe.append(el("span", { class: "fusion-plus" }, ["+"]));
@@ -476,14 +538,31 @@ export class Controller {
           el("span", { class: "fusion-req-lv" }, [`${r.tier}단계`]),
         ]));
       });
-      fusionCards.append(el("div", { class: "fusion-card", title: `${f.name} (퓨전 — ${f.points}점 / ${f.recipe.map((r) => r.label).join(" + ")})` }, [
-        el("div", { class: "fusion-pts" }, [String(f.points)]),
-        recipe,
+
+      const cardCls = ["fusion-card"];
+      if (owner !== null) cardCls.push("claimed");
+      else if (humanEligible) cardCls.push("eligible");
+      const cardEl = el("div", {
+        class: cardCls.join(" "),
+        title: `${f.name} (퓨전 — ${f.points}점 / ${f.recipe.map((r) => r.label).join(" + ")})`,
+      }, [
+        // 일반 카드와 동일한 헤더 배치: 점수(좌, pc-pts 동일) + 레시피(우, 보너스 자리)
+        el("div", { class: "pc-head fusion-head" }, [
+          el("div", { class: "pc-pts" }, [String(f.points)]),
+          recipe,
+        ]),
         el("div", { class: "fusion-art" }, [
           el("img", { src: fusionImg(f.romanized), alt: f.name, class: "fusion-img" }),
         ]),
         el("div", { class: "fusion-name" }, [f.name]),
-      ]));
+      ]);
+      if (owner !== null) {
+        cardEl.append(el("div", { class: "fusion-claimed-badge" }, [
+          el("i", { class: "fa-solid fa-check mr-1" }),
+          `${this.playerName(owner)} 획득`,
+        ]));
+      }
+      fusionCards.append(cardEl);
     }
     fusionRow.append(fusionCards);
     board.append(fusionRow);
@@ -681,6 +760,8 @@ export class Controller {
         ? this.renderScoredStacks(p.scored, 48, true)
         : el("span", { class: "text-xs opacity-30" }, ["없음"]),
     );
+    const meFusions = this.renderPlayerFusions(p, 40);
+    if (meFusions) scoredSection.append(meFusions);
     panel.append(scoredSection);
 
     // Reserved cards
@@ -755,6 +836,8 @@ export class Controller {
     if (p.scored.length > 0) {
       panel.append(this.renderScoredStacks(p.scored, 36, false));
     }
+    const aiFusions = this.renderPlayerFusions(p, 32);
+    if (aiFusions) panel.append(aiFusions);
 
     // Reserved cards are public in this simulator so the user can track AI plans.
     if (p.reserved.length > 0) {

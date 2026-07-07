@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { BallColor, CardDef, Color, Tier } from "@/game/types";
 import {
   createGame, cloneGame, emptyBallMap, emptyColorMap,
-  discountedCost, canAfford, playerPoints,
+  discountedCost, canAfford, playerPoints, claimableFusions,
 } from "@/game/state";
 import { computePay, legalEvolutions, legalMainActions } from "@/game/actions";
 import {
@@ -107,7 +107,7 @@ describe("cost & affordability", () => {
     const card = findCard((c) => c.name === "손오공" && c.cost.blue === 4);
     const p: PlayerState = {
       id: 0, isHuman: true, balls: { ...emptyBallMap(), blue: 2, gold: 2 },
-      bonus: emptyColorMap(), reserved: [], scored: [], evolutions: 0,
+      bonus: emptyColorMap(), reserved: [], scored: [], fusions: [], evolutions: 0,
     };
     expect(canAfford(p, card)).toBe(true);
     p.balls.gold = 1;
@@ -120,7 +120,7 @@ describe("cost & affordability", () => {
     const p: PlayerState = {
       id: 0, isHuman: true,
       balls: { ...emptyBallMap(), black: cost.black!, blue: cost.blue! },
-      bonus: emptyColorMap(), reserved: [], scored: [], evolutions: 0,
+      bonus: emptyColorMap(), reserved: [], scored: [], fusions: [], evolutions: 0,
     };
     expect(canAfford(p, noble)).toBe(false); // 궁극의 드래곤볼 0
     p.balls.gold = 1;
@@ -132,7 +132,7 @@ describe("cost & affordability", () => {
     const p: PlayerState = {
       id: 0, isHuman: true,
       balls: { ...emptyBallMap(), black: 1, blue: 2, gold: 5 },
-      bonus: emptyColorMap(), reserved: [], scored: [], evolutions: 0,
+      bonus: emptyColorMap(), reserved: [], scored: [], fusions: [], evolutions: 0,
     };
     const pay = computePay(p, noble);
     expect(pay).not.toBeNull();
@@ -363,5 +363,48 @@ describe("integration: deterministic full turn", () => {
       return { log, ended: s.ended, winner: winnerId(s) };
     };
     expect(run(123)).toEqual(run(123));
+  });
+});
+
+describe("퓨전(베지트) 자동 획득", () => {
+  const gokuSs = findCard((c) => c.romanized === "goku_ss" && c.tier === 2);
+  const vegetaSs = findCard((c) => c.romanized === "vegeta_ss" && c.tier === 2);
+
+  it("2단계 손오공+베지터 조합 완성 시 베지트를 턴/진화 소모 없이 자동 획득(+1점)", () => {
+    const s = soloState({
+      balls: { red: 9, blue: 9, black: 9, pink: 9, yellow: 9, gold: 9 },
+      scored: [gokuSs.id],
+      board: [vegetaSs.id],
+    });
+    const p = s.players[0]!;
+    expect(p.fusions).toEqual([]);
+
+    const pay = computePay(p, vegetaSs)!;
+    applyMainAction(s, { type: "acquire", cardId: vegetaSs.id, pay });
+
+    expect(p.fusions).toContain("vegito");
+    expect(playerPoints(p)).toBe(gokuSs.points + vegetaSs.points + 1);
+    expect(s.evolvedThisTurn).toBe(false); // 진화 미소모
+    expect(s.currentPlayer).toBe(0);       // 턴 미소모(applyMainAction 이 finishTurn 하지 않음)
+  });
+
+  it("한 장만 보유하면 조합 미충족(claimable 없음)", () => {
+    const s = soloState({ scored: [gokuSs.id] });
+    expect(claimableFusions(s, 0)).toEqual([]);
+    s.players[0]!.scored.push(vegetaSs.id);
+    expect(claimableFusions(s, 0)).toEqual(["vegito"]);
+  });
+
+  it("베지트는 단 한 장: 다른 플레이어가 이미 가지면 획득 불가", () => {
+    const s = soloState({
+      balls: { red: 9, blue: 9, black: 9, pink: 9, yellow: 9, gold: 9 },
+      scored: [gokuSs.id],
+      board: [vegetaSs.id],
+    });
+    s.players[1]!.fusions = ["vegito"];
+    const p = s.players[0]!;
+    const pay = computePay(p, vegetaSs)!;
+    applyMainAction(s, { type: "acquire", cardId: vegetaSs.id, pay });
+    expect(p.fusions).toEqual([]);
   });
 });

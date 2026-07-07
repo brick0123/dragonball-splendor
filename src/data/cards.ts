@@ -190,6 +190,10 @@ export const FUSIONS: readonly {
   },
 ];
 
+/** 퓨전 romanized → 정의. 점수 합산·표시 조회용. */
+export const FUSION_BY_ROMANIZED: Readonly<Record<string, (typeof FUSIONS)[number]>> =
+  Object.fromEntries(FUSIONS.map((f) => [f.romanized, f]));
+
 const counters: Record<string, number> = {};
 function nextId(prefix: string): string {
   counters[prefix] = (counters[prefix] ?? 0) + 1;

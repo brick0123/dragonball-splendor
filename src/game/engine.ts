@@ -2,7 +2,7 @@
 import type { BallColor, Color, Tier } from "./types";
 import { COLORS } from "./types";
 import type { GameState, PlayerState } from "./state";
-import { cardOf, playerPoints, refillBoard, withinBallLimit } from "./state";
+import { cardOf, grantFusionsForCurrent, playerPoints, refillBoard, withinBallLimit } from "./state";
 import type { Evolution, MainAction } from "./actions";
 import { legalEvolutions, legalMainActions } from "./actions";
 
@@ -100,6 +100,8 @@ function applyAcquire(s: GameState, cardId: string, pay: Record<BallColor, numbe
     const b = card.bonus[c] ?? 0;
     if (b > 0) p.bonus[c] += b;
   }
+  // 퓨전 조건(예: 2단계 손오공 + 2단계 베지터 → 베지트) 충족 시 자동 획득.
+  grantFusionsForCurrent(s);
 }
 
 export function applyMainAction(s: GameState, a: MainAction): void {
@@ -132,6 +134,8 @@ export function applyEvolution(s: GameState, e: Evolution): void {
   p.scored.push(e.targetId);
   p.evolutions += 1;
   s.evolvedThisTurn = true;
+  // 진화로 2단계 카드를 얻어 퓨전 조건을 충족할 수 있으므로 재확인.
+  grantFusionsForCurrent(s);
 }
 
 /** 턴 종료: 18점 임계점 체크, 진화 플래그 리셋, 다음 플레이어로, 종료 감지. */

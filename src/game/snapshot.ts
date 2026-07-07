@@ -11,6 +11,7 @@ export interface SnapshotPlayer {
   bonus: Record<Color, number>;
   reserved: string[];
   scored: string[];
+  fusions: string[];
   evolutions: number;
 }
 
@@ -50,6 +51,7 @@ export function serialize(s: GameState): Snapshot {
       bonus: { ...p.bonus },
       reserved: p.reserved.slice(),
       scored: p.scored.slice(),
+      fusions: p.fusions.slice(),
       evolutions: p.evolutions,
     })),
     currentPlayer: s.currentPlayer,
@@ -75,6 +77,7 @@ export function deserialize(snap: Snapshot): GameState {
     bonus: { ...p.bonus },
     reserved: p.reserved.slice(),
     scored: p.scored.slice(),
+    fusions: p.fusions.slice(),
     evolutions: p.evolutions,
   }));
   return {

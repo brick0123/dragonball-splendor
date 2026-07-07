@@ -2,7 +2,7 @@
 // 상태는 가변(mutable). 몬테카를로는 cloneGame 으로 복제 후 분기한다.
 import type { BallColor, CardDef, Color, Tier } from "./types";
 import { COLORS, isNoble } from "./types";
-import { CARDS_BY_ID, deckOf } from "@/data/cards";
+import { CARDS_BY_ID, deckOf, FUSIONS, FUSION_BY_ROMANIZED } from "@/data/cards";
 import { INITIAL_BALL_SUPPLY, MAX_BALLS_IN_HAND, MAX_RESERVED, REVEAL_PER_STAGE } from "@/data/balls";
 import { Rng } from "./rng";
 
@@ -17,6 +17,8 @@ export interface PlayerState {
   reserved: string[];
   /** 타일 위 점수 카드 id(진화 시 하위는 제거·상위 추가). */
   scored: string[];
+  /** 획득한 퓨전 캐릭터 romanized(예: "vegito"). 조건 충족 시 자동 획득, 턴/진화 미소모. */
+  fusions: string[];
   /** 진화 횟수(tie-breaker 1순위). */
   evolutions: number;
 }
@@ -93,11 +95,39 @@ export function canAfford(p: PlayerState, card: CardDef): boolean {
   return p.balls.gold >= gold;
 }
 
-/** 플레이어 점수 = 타일 위(scored) 카드 점수 합. */
+/** 플레이어 점수 = 타일 위(scored) 카드 점수 합 + 획득 퓨전 점수 합. */
 export function playerPoints(p: PlayerState): number {
   let n = 0;
   for (const id of p.scored) n += cardOf(id).points;
+  for (const r of p.fusions) n += FUSION_BY_ROMANIZED[r]?.points ?? 0;
   return n;
+}
+
+/** 아직 아무도 획득하지 않았고, 해당 플레이어가 레시피(scored 카드 조합)를 충족하는 퓨전 romanized 목록. */
+export function claimableFusions(s: GameState, playerIdx: number): string[] {
+  const p = s.players[playerIdx]!;
+  const taken = new Set<string>();
+  for (const pl of s.players) for (const r of pl.fusions) taken.add(r);
+  const out: string[] = [];
+  for (const f of FUSIONS) {
+    if (taken.has(f.romanized)) continue;
+    const ok = f.recipe.every((req) =>
+      p.scored.some((id) => {
+        const c = cardOf(id);
+        return c.romanized === req.romanized && c.tier === req.tier;
+      }),
+    );
+    if (ok) out.push(f.romanized);
+  }
+  return out;
+}
+
+/** 현재 플레이어가 충족한 퓨전을 즉시 부여(턴/진화 미소모). 부여된 romanized 목록 반환. */
+export function grantFusionsForCurrent(s: GameState): string[] {
+  const idx = s.currentPlayer;
+  const granted = claimableFusions(s, idx);
+  if (granted.length > 0) s.players[idx]!.fusions.push(...granted);
+  return granted;
 }
 
 /** 보드 전체 카드 id 순회(legal action 탐색용). */
@@ -137,6 +167,7 @@ export function createGame(seed: number, numPlayers = 4, humanIndex = 0): GameSt
       bonus: emptyColorMap(),
       reserved: [],
       scored: [],
+      fusions: [],
       evolutions: 0,
     });
   }
@@ -175,6 +206,7 @@ export function cloneGame(s: GameState): GameState {
     bonus: { ...p.bonus },
     reserved: p.reserved.slice(),
     scored: p.scored.slice(),
+    fusions: p.fusions.slice(),
     evolutions: p.evolutions,
   }));
   return {
