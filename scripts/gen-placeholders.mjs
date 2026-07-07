@@ -11,9 +11,9 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const assets = resolve(root, "assets");
 
-const HEX = { red: "#e23636", blue: "#2f6fed", black: "#33363d", pink: "#ec5aa0", yellow: "#f2c53d", gold: "#f5c542" };
-const INK = { red: "#ffffff", blue: "#ffffff", black: "#ffffff", pink: "#ffffff", yellow: "#232323", gold: "#232323" };
-const AURA = { red: "#ff8a5c", blue: "#7db4ff", black: "#8a8fb0", pink: "#ffa8d4", yellow: "#ffe27a", gold: "#ffe27a" };
+const HEX = { red: "#e23636", blue: "#2f6fed", black: "#33363d", pink: "#ec5aa0", yellow: "#f2c53d", gold: "#8b5cf6" };
+const INK = { red: "#ffffff", blue: "#ffffff", black: "#ffffff", pink: "#ffffff", yellow: "#232323", gold: "#ffffff" };
+const AURA = { red: "#ff8a5c", blue: "#7db4ff", black: "#8a8fb0", pink: "#ffa8d4", yellow: "#ffe27a", gold: "#c4b5fd" };
 
 // [color, kind, [s1kr,s1rom],[s2kr,s2rom],[s3kr,s3rom]]  — kind: saiyan | villain
 const LINES = [

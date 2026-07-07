@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs><radialGradient id="r" cx="0.38" cy="0.32" r="0.8">
-    <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
-    <stop offset="0.4" stop-color="#f5c542"/><stop offset="1" stop-color="#f5c542"/>
+    <stop offset="0" stop-color="#ffffff" stop-opacity="0.92"/>
+    <stop offset="0.4" stop-color="#8b5cf6"/><stop offset="1" stop-color="#7c3aed"/>
   </radialGradient></defs>
-  <circle cx="64" cy="60" r="46" fill="#ffe27a" fill-opacity="0.35"/>
-  <circle cx="64" cy="60" r="40" fill="url(#r)" stroke="#232323" stroke-opacity="0.5" stroke-width="4"/>
-  <text x="64" y="58" font-size="30" text-anchor="middle" fill="#232323">★</text>
-  <text x="64" y="118" font-size="14" font-weight="700" fill="#232323" text-anchor="middle" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif">궁극의 드래곤볼</text>
+  <circle cx="64" cy="60" r="46" fill="#c4b5fd" fill-opacity="0.4"/>
+  <circle cx="64" cy="60" r="40" fill="url(#r)" stroke="#ffffff" stroke-opacity="0.7" stroke-width="4"/>
+  <text x="64" y="58" font-size="30" text-anchor="middle" fill="#ffffff">★</text>
+  <text x="64" y="118" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif">궁극의 드래곤볼</text>
 </svg>

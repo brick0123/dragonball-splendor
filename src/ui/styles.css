@@ -217,7 +217,7 @@ button, input, select, textarea {
   --card-black-border-rgb: 226, 232, 240;
   --ball-pink-rgb: 235, 184, 210;
   --ball-yellow-rgb: 237, 232, 71;
-  --ball-gold-rgb: 162, 93, 158;
+  --ball-gold-rgb: 139, 92, 246;
   --ball-red: rgb(var(--ball-red-rgb));
   --ball-blue: rgb(var(--ball-blue-rgb));
   --ball-black: rgb(var(--ball-black-rgb));
