@@ -2189,6 +2189,17 @@ button, input, select, textarea {
     width: var(--card-width);
     scroll-snap-align: start;
   }
+  /* 인벤토리(획득): 한 줄에 색상 스택 3개 → 세로 스크롤 단축 */
+  .scored-stacks--me {
+    --card-width: calc((100vw - 64px) / 3);
+    --card-height: calc((100vw - 64px) / 3 * 1.585);
+    gap: 7px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .scored-stacks--me .card-color-stack .poke-card + .poke-card {
+    margin-top: calc(var(--card-height) * -0.62);
+  }
   .poke-card {
     flex-basis: var(--card-width);
     width: var(--card-width);
