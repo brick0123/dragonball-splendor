@@ -1,0 +1,16 @@
+# Render.com 무료 배포 블루프린트
+# 사용: Render 대시보드 → New → Blueprint → 이 GitHub 레포 연결 → Apply
+# (또는 New → Web Service → 아래 설정 수동 입력)
+services:
+  - type: web
+    name: dragonball-splendor
+    runtime: node
+    plan: free
+    # Render 는 기본 NODE_ENV=production 이라 devDependencies(vite) 가 빠지므로 --include=dev 필요
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node server/relay.mjs
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
