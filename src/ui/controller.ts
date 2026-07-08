@@ -1216,14 +1216,18 @@ export class Controller {
       ]),
     ]));
 
-    // 자원(컴팩트): 위=공, 아래=카드+공 합계
+    // 자원(컴팩트): 위=카드+공 합, 아래=공. 상대 보유 공 개수 요약 포함.
+    panel.append(el("div", { class: "ai-res-sum" }, [
+      el("i", { class: "fa-solid fa-coins mr-1" }),
+      this.resourceSummary(p),
+    ]));
     panel.append(this.renderResourceGrid(p, true));
 
-    // Scored cards grouped by bonus color
+    // Scored cards — 나와 동일하게 크게 + 진화 필요 색상 표시
     if (p.scored.length > 0) {
-      panel.append(this.renderScoredStacks(p.scored, 36, false));
+      panel.append(this.renderScoredStacks(p.scored, 48, true, true));
     }
-    const aiFusions = this.renderPlayerFusions(p, 32);
+    const aiFusions = this.renderPlayerFusions(p, 40);
     if (aiFusions) panel.append(aiFusions);
 
     // Reserved cards are public in this simulator so the user can track AI plans.

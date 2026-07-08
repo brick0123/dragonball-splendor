@@ -1160,6 +1160,7 @@ button, input, select, textarea {
 .res-c-pink   { background: rgb(var(--ball-pink-rgb)); color: #3a1020; }
 .res-c-yellow { background: rgb(var(--ball-yellow-rgb)); color: #3a2f05; }
 .res-c-gold   { background: rgba(255,255,255,0.06); color: #c9a0ff; }
+.ai-res-sum { font-size: 10px; font-weight: 700; color: #ffcb05; opacity: 0.85; margin: 4px 0 3px; }
 /* AI 패널용 컴팩트 */
 .res-grid--sm { gap: 4px; }
 .res-grid--sm .res-cell { min-width: 34px; padding: 4px 4px 3px; gap: 3px; }
