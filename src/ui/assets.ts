@@ -43,4 +43,9 @@ export function fusionImg(romanized: string): string {
   return byKey[`fusion/${romanized}`] ?? "";
 }
 
+/** 임의 키의 에셋 URL(예: "ui/home-bg"). */
+export function assetUrl(key: string): string {
+  return byKey[key] ?? "";
+}
+
 export const HAS_ASSETS = Object.keys(byKey).length > 0;

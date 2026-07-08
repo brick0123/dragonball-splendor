@@ -12,3 +12,8 @@ _lantest.mjs
 _migtest.mjs
 # 배포 매니페스트(레지스트리·클러스터·네임스페이스 등 사내 정보) — 깃허브 제외
 k8s/
+_hometest.mjs
+_waittest.mjs
+_navtest.mjs
+_exittest.mjs
+_shot.mjs

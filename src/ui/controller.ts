@@ -13,7 +13,7 @@ import type { SimResponse } from "@/simulator/worker";
 import { Rng } from "@/game/rng";
 import { COLOR_DISPLAY, MAX_RESERVED, MAX_BALLS_IN_HAND } from "@/data/balls";
 import { FUSIONS, FUSION_BY_ROMANIZED } from "@/data/cards";
-import { fusionImg, cardImg } from "./assets";
+import { fusionImg, cardImg, ballImg, assetUrl } from "./assets";
 import SimWorker from "@/simulator/worker?worker&inline";
 import {
   el, ballIcon, makeCardEl, makeMiniCard,
@@ -62,6 +62,9 @@ export class Controller {
   private leftSeats: Set<number> = new Set(); // 중도 이탈해 게임에서 빠진 좌석(턴 건너뜀)
   private lanRoster: RosterEntry[] = [];
   private lanError = "";
+  private homeOpen = false; // 첫 진입 홈 화면(싱글/LAN 선택)
+  private lanClosing = false; // 의도적으로 LAN 연결을 끊는 중(뒤늦은 close 이벤트가 UI를 가로채지 않도록)
+  private inGame = false; // 실제 게임(로컬/LAN) 진행 중 여부 — false면 카드 보드 대신 대기 화면
   private lanLobbyOpen = false;
   private lanView: "list" | "lobby" = "list"; // 방 목록 / 방 대기실
   private lanJoined = false; // 방에 착석 여부
@@ -152,7 +155,9 @@ export class Controller {
 
   newGame(seed = (Math.random() * 1e9) | 0): void {
     // 로컬 새 게임 = LAN 완전히 떠남. 남은 연결을 정리해 재진입 시 '연결 끊김' 방지.
-    if (this.lan) { this.lan.leave(); this.lan.close(); this.lan = null; }
+    if (this.lan) { this.lanClosing = true; this.lan.leave(); this.lan.close(); this.lan = null; }
+    this.homeOpen = false;
+    this.inGame = true;
     this.lanJoined = false;
     this.lanLobbyOpen = false;
     this.lanView = "list";
@@ -182,7 +187,7 @@ export class Controller {
     this.startTurn();
   }
 
-  /** 앱 시작: LAN 방에 있었으면 자동 재접속, 아니면 저장된 로컬 게임/새 게임. */
+  /** 앱 시작: LAN 방에 있었으면 자동 재접속, 아니면 홈 화면(싱글/LAN 선택). */
   start(): void {
     const sess = this.readLanSession();
     if (sess) {
@@ -191,6 +196,16 @@ export class Controller {
       this.reconnectLan(sess);
       return;
     }
+    // 첫 화면: 자동으로 게임을 시작하지 않고 홈에서 모드를 고르게 한다.
+    this.homeOpen = true;
+    this.inGame = false;
+    this.state = createGame((Math.random() * 1e9) | 0, 4, 0); // 렌더 크래시 방지용 배경 상태
+    this.render();
+  }
+
+  /** 홈 → 싱글 모드 시작(저장된 게임 있으면 이어하기, 없으면 새 게임). */
+  private startSingle(): void {
+    this.homeOpen = false;
     if (!this.tryRestore()) this.newGame();
   }
 
@@ -261,6 +276,7 @@ export class Controller {
       this.leftSeats = new Set(d.leftSeats ?? []);
       this.mySeat = 0;
       this.netMode = "host";
+      this.inGame = true;
       this.endOverlayOpen = true;
       this.winRates = new Array(state.numPlayers).fill(1 / state.numPlayers);
       this.winRatesStale = true;
@@ -288,6 +304,7 @@ export class Controller {
       this.netMode = "local";
       this.mySeat = DEFAULT_SEAT;
       this.humanSeats = new Set([DEFAULT_SEAT]);
+      this.inGame = true;
       this.ballPickColors = [];
       this.ballPickActive = false;
       this.endOverlayOpen = true;
@@ -373,11 +390,13 @@ export class Controller {
       onPromote: (_hostSeat, roster) => { this.lanRoster = roster; this.becomeHost(); },
       onRoster: (roster) => { this.lanRoster = roster; this.onLanRosterChange(); },
       onRelay: (from, payload) => this.handleRelay(from, payload),
-      onResend: () => { if (this.netMode === "host") this.broadcastState(); },
+      onResend: () => { if (this.netMode === "host" && this.inGame) this.broadcastState(); },
       onReconnectFail: () => { this.clearLanSession(); this.fallbackToLocal("이전 방을 찾지 못했습니다."); },
       onError: (msg) => { this.lanError = msg; this.render(); },
       onClose: (reason) => {
         this.lan = null;
+        // 의도적으로 나간 경우(싱글 모드 전환 등): 뒤늦은 close 이벤트로 UI를 되돌리지 않는다.
+        if (this.lanClosing) { this.lanClosing = false; return; }
         if (this.lanResuming) { this.lanResuming = false; this.fallbackToLocal(""); return; }
         this.lanError = reason;
         this.netMode = "local";
@@ -400,6 +419,7 @@ export class Controller {
   private openLanLobby(): void {
     this.lanLobbyOpen = true;
     this.lanView = "list";
+    this.inGame = false;
     if (this.lan) { this.render(); return; }
     this.lanError = "";
     this.lanJoined = false;
@@ -470,6 +490,7 @@ export class Controller {
   private becomeHost(): void {
     if (this.netMode === "host") return;
     this.netMode = "host";
+    this.inGame = true;
     if (this.lan) this.lan.isHost = true;
     const sess = this.readLanSession();
     if (sess) this.saveLanSession({ ...sess, role: "host" });
@@ -548,18 +569,27 @@ export class Controller {
     this.render();
   }
 
+  /** '싱글 모드' 클릭: 방에 있으면 확인 후 나가고 싱글로. */
+  private exitToSingle(): void {
+    const inRoom = this.lanJoined || this.netMode === "spectator";
+    if (inRoom && !window.confirm("현재 방에서 나가고 싱글 모드로 이동합니다. 계속할까요?")) return;
+    this.leaveLan();
+  }
+
+  /** LAN 종료 → 홈이 아니라 싱글 모드로 복귀(이전 싱글 게임 이어하기, 없으면 새 게임). */
   private leaveLan(): void {
-    this.lan?.leave();
-    this.lan?.close();
+    if (this.lan) { this.lanClosing = true; this.lan.leave(); this.lan.close(); }
     this.lan = null;
     this.clearLanSession();
     this.netMode = "local";
     this.mySeat = DEFAULT_SEAT;
     this.humanSeats = new Set([DEFAULT_SEAT]);
+    this.leftSeats = new Set();
     this.lanLobbyOpen = false;
     this.lanJoined = false;
     this.lanView = "list";
-    this.newGame();
+    this.homeOpen = false;
+    if (!this.tryRestore()) this.newGame();
   }
 
   /** 호스트: LAN 게임 시작.
@@ -580,6 +610,7 @@ export class Controller {
     this.ballPickActive = false;
     this.endOverlayOpen = true;
     this.lanLobbyOpen = false;
+    this.inGame = true;
     this.winRates = new Array(numPlayers).fill(1 / numPlayers);
     this.winRatesStale = true;
     this.activeWinRateRequestId = ++this.winRateRequestSeq;
@@ -604,7 +635,7 @@ export class Controller {
   }
 
   private broadcastState(): void {
-    if (this.netMode !== "host") return;
+    if (this.netMode !== "host" || !this.inGame) return;
     this.lan?.relay({
       k: "state",
       snapshot: serialize(this.state),
@@ -630,6 +661,7 @@ export class Controller {
     if (Array.isArray(p.leftSeats)) this.leftSeats = new Set(p.leftSeats as number[]);
     if (Array.isArray(p.aiLog)) this.aiLog = p.aiLog as string[];
     this.lanLobbyOpen = false;
+    this.inGame = true;
     if (this.state.ended) {
       this.phase = "ended";
       this.endOverlayOpen = true;
@@ -1091,6 +1123,16 @@ export class Controller {
   // ═══════════════════════════════════════════════════════════════════
 
   render(): void {
+    if (this.homeOpen) {
+      this.root.replaceChildren(this.renderHome());
+      return;
+    }
+    // 게임이 아직 시작되지 않았으면(LAN 방 탐색/대기실) 카드 보드 대신 대기 화면을 보여준다.
+    if (!this.inGame) {
+      this.root.replaceChildren(this.renderWaitingLayout());
+      if (this.lanLobbyOpen) this.root.append(this.renderLanOverlay());
+      return;
+    }
     this.root.replaceChildren(
       this.renderGameLayout(),
     );
@@ -1100,6 +1142,95 @@ export class Controller {
     if (this.lanLobbyOpen) {
       this.root.append(this.renderLanOverlay());
     }
+  }
+
+  /** LAN 대기 화면: 카드 보드/AI 없이 방 참가자만 보여준다. */
+  private renderWaitingLayout(): HTMLElement {
+    const inRoom = this.lanJoined && this.lanView === "lobby";
+    return el("div", { class: "game-layout" }, [
+      el("div", { class: "game-left" }, [
+        el("div", { class: "game-header" }, [
+          el("span", { class: "title" }, [el("i", { class: "fa-solid fa-gamepad mr-1" }), "드래곤볼 스플렌더"]),
+          el("span", { class: "badge badge-ghost" }, [el("i", { class: "fa-solid fa-hourglass-half mr-1" }), "대기 중"]),
+          this.renderBgmPlayer(),
+          el("button", { class: "btn btn-sm btn-ghost", onclick: () => this.exitToSingle() },
+            [el("i", { class: "fa-solid fa-gamepad mr-1" }), "싱글 모드"]),
+        ]),
+        el("div", { class: "waiting-board" }, [
+          el("div", { class: "waiting-logo" }, [el("i", { class: "fa-solid fa-dragon" })]),
+          el("div", { class: "waiting-title" }, [inRoom ? "게임 시작 대기 중" : "방에 참가해 주세요"]),
+          el("div", { class: "waiting-sub" }, [
+            inRoom ? "방장이 게임을 시작하면 자동으로 시작됩니다." : "오른쪽에서 방을 만들거나 참가하세요.",
+          ]),
+        ]),
+      ]),
+      this.renderWaitingRight(),
+    ]);
+  }
+
+  /** 대기 화면 우측: 현재 방 참가자 목록. */
+  private renderWaitingRight(): HTMLElement {
+    const right = el("div", { class: "game-right" });
+    right.append(el("div", { class: "waiting-right-title" }, [
+      el("i", { class: "fa-solid fa-users mr-1" }), `방 참가자 (${this.lanRoster.length}/4)`,
+    ]));
+    const hostSeat = this.lan?.hostSeat ?? 0;
+    if (this.lanRoster.length === 0) {
+      right.append(el("div", { class: "waiting-empty" }, ["아직 참가자가 없습니다.\n방에 참가하면 여기에 표시됩니다."]));
+    } else {
+      const seats = [...this.lanRoster].sort((a, b) => a.seat - b.seat);
+      for (const r of seats) {
+        const isMe = this.lanJoined && r.seat === this.mySeat;
+        const isHost = r.seat === hostSeat;
+        right.append(el("div", { class: `waiting-player${isMe ? " me" : ""}` }, [
+          el("div", { class: "waiting-avatar" }, [r.name.slice(0, 1).toUpperCase()]),
+          el("span", { class: "waiting-name" }, [r.name]),
+          isHost ? el("span", { class: "lan-chip host" }, ["호스트"]) : "",
+          isMe ? el("span", { class: "lan-chip me" }, ["나"]) : "",
+        ]));
+      }
+      for (let i = seats.length; i < 4; i++) {
+        right.append(el("div", { class: "waiting-player empty" }, [
+          el("div", { class: "waiting-avatar empty" }, [String(i + 1)]),
+          el("span", { class: "waiting-name muted" }, ["비어 있음"]),
+        ]));
+      }
+    }
+    return right;
+  }
+
+  /** 첫 화면: 싱글 모드 / LAN 대전 선택 — 드래곤볼 GT 포스터 배경. */
+  private renderHome(): HTMLElement {
+    const hasSave = (() => { try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; } })();
+    const bg = assetUrl("ui/home-bg");
+    const dball = ballImg("dragon_ball");
+
+    const screen = el("div", { class: "home-screen" + (bg ? " has-bg" : "") }, []);
+    if (bg) screen.style.setProperty("--home-bg", `url(${bg})`);
+
+    // 떠다니는 드래곤볼 몇 개(재미 요소)
+    if (dball) {
+      screen.append(el("div", { class: "home-balls" }, [1, 2, 3, 4].map((n) =>
+        el("img", { src: dball, class: `home-ball hb-${n}`, alt: "", "aria-hidden": "true" }))));
+    }
+
+    screen.append(el("div", { class: "home-card" }, [
+      el("div", { class: "home-badge" }, ["DRAGON BALL"]),
+      el("h1", { class: "home-title" }, ["드래곤볼 스플렌더"]),
+      el("div", { class: "home-modes" }, [
+        el("button", { class: "home-mode single", onclick: () => this.startSingle() }, [
+          el("div", { class: "home-mode-icon" }, ["🎮"]),
+          el("div", { class: "home-mode-name" }, ["싱글 모드"]),
+          el("div", { class: "home-mode-desc" }, [hasSave ? "이어하기 · AI와 대결" : "AI 3명과 대결"]),
+        ]),
+        el("button", { class: "home-mode lan", onclick: () => { this.homeOpen = false; this.openLanLobby(); } }, [
+          el("div", { class: "home-mode-icon" }, ["🌐"]),
+          el("div", { class: "home-mode-name" }, ["LAN 대전"]),
+          el("div", { class: "home-mode-desc" }, ["같은 네트워크의 친구들과"]),
+        ]),
+      ]),
+    ]));
+    return screen;
   }
 
   private renderLanOverlay(): HTMLElement {
@@ -1160,11 +1291,16 @@ export class Controller {
         : this.roomList.map((r) => this.renderRoomRow(r, inRoom)),
     ));
 
-    const actions: (HTMLElement | string)[] = [
-      el("button", { class: "lan-btn ghost", onclick: () => { this.lanLobbyOpen = false; this.render(); } }, ["숨기기"]),
-    ];
-    if (inRoom) actions.push(el("button", { class: "lan-btn ghost danger", onclick: () => this.leaveLan() }, ["방 나가기"]));
-    else actions.push(el("button", { class: "lan-btn ghost danger", onclick: () => this.leaveLan() }, ["LAN 종료"]));
+    const attached = this.lanJoined || this.netMode === "spectator";
+    const actions: (HTMLElement | string)[] = [];
+    if (attached) {
+      actions.push(el("button", { class: "lan-btn ghost", onclick: () => { this.lanLobbyOpen = false; this.render(); } }, ["숨기기"]));
+      actions.push(el("button", { class: "lan-btn ghost danger", onclick: () => this.leaveLan() }, [this.lanJoined ? "방 나가기" : "관전 종료"]));
+    } else {
+      actions.push(el("button", { class: "lan-btn ghost", onclick: () => this.exitToSingle() }, [
+        el("i", { class: "fa-solid fa-gamepad mr-1" }), "싱글 모드",
+      ]));
+    }
     body.push(el("div", { class: "lan-actions" }, actions));
     return body;
   }
@@ -1240,7 +1376,6 @@ export class Controller {
 
     body.push(el("div", { class: "lan-actions" }, [
       el("button", { class: "lan-btn ghost", onclick: () => this.backToRoomList() }, ["← 방 목록"]),
-      el("button", { class: "lan-btn ghost", onclick: () => { this.lanLobbyOpen = false; this.render(); } }, ["숨기기"]),
       el("button", { class: "lan-btn ghost danger", onclick: () => this.leaveLan() }, ["나가기"]),
     ]));
     return body;
