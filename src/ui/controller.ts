@@ -542,6 +542,7 @@ export class Controller {
       const cardCls = ["fusion-card"];
       if (owner !== null) cardCls.push("claimed");
       else if (humanEligible) cardCls.push("eligible");
+      else cardCls.push("dim"); // 조건 미충족: 구매 가능처럼 보이지 않게 흐리게
       const cardEl = el("div", {
         class: cardCls.join(" "),
         title: `${f.name} (퓨전 — ${f.points}점 / ${f.recipe.map((r) => r.label).join(" + ")})`,

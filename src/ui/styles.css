@@ -374,10 +374,11 @@ button, input, select, textarea {
 .poke-card.affordable {
   box-shadow: 0 0 0 3px #22c55e, 0 5px 16px rgba(34,197,94,0.4);
 }
-/* 살 수 없는 카드: 흐림 + 살짝 탈색으로 뒤로 물러나게(한눈에 구분) */
-.poke-card.dim {
-  opacity: 0.55;
-  filter: grayscale(0.4);
+/* 살 수 없는 카드: 살짝만 흐리게(초록 링이 있는 구매가능 카드와 대비) */
+.poke-card.dim,
+.fusion-card.dim {
+  opacity: 0.72;
+  filter: grayscale(0.25);
 }
 
 /* 보너스 색 → 카드 액센트(테두리/헤더/이름 배지) */
