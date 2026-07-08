@@ -1586,8 +1586,13 @@ button, input, select, textarea {
   min-height: 320px;
 }
 .waiting-logo { font-size: 72px; color: #ffcb05; opacity: 0.5; filter: drop-shadow(0 3px 10px rgba(255,203,5,0.25)); }
-.waiting-title { font-size: 22px; font-weight: 800; }
+.waiting-title { font-size: 24px; font-weight: 800; }
 .waiting-sub { font-size: 13px; opacity: 0.6; }
+.waiting-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; width: min(320px, 80vw); }
+.waiting-hint { font-size: 12px; opacity: 0.5; margin-top: 4px; }
+.waiting-dots { margin-top: 10px; font-size: 13px; opacity: 0.7; }
+.waiting-links { display: flex; gap: 8px; margin-top: 20px; }
+.lan-btn.lg { font-size: 15px; padding: 13px 18px; width: 100%; }
 .waiting-right-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; opacity: 0.85; }
 .waiting-empty { font-size: 13px; opacity: 0.55; white-space: pre-line; line-height: 1.6; }
 .waiting-player {
