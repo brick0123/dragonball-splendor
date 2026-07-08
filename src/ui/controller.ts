@@ -1159,7 +1159,11 @@ export class Controller {
   private renderResourceGrid(p: PlayerState, compact = false): HTMLElement {
     const wrap = el("div", { class: compact ? "res-grid res-grid--sm" : "res-grid" });
     const orbSize = compact ? 26 : 30;
+    let shown = 0;
     for (const c of COLORS) {
+      // 카드+공 합(토탈)이 0인 색상은 표시하지 않음(1 이상만)
+      if (this.colorTotal(p, c) <= 0) continue;
+      shown++;
       wrap.append(el("div", { class: "res-cell", title: this.colorTotalTitle(p, c) }, [
         el("div", { class: `res-total res-c-${c}` }, [String(this.colorTotal(p, c))]),
         el("div", { class: "res-orb" }, [
@@ -1176,6 +1180,9 @@ export class Controller {
           el("span", { class: "res-ball-cnt" }, [String(p.balls.gold)]),
         ]),
       ]));
+    }
+    if (shown === 0 && p.balls.gold === 0) {
+      wrap.append(el("span", { class: "res-empty" }, ["보유 자원 없음"]));
     }
     return wrap;
   }
