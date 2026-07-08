@@ -7,7 +7,8 @@ import {
 import { legalEvolutions, legalMainActions, type MainAction, type Evolution } from "@/game/actions";
 import { applyMainAction, applyEvolution, finishTurn, winnerId, rankPlayers } from "@/game/engine";
 import { chooseStrongTurn } from "@/strategy/policy";
-import { serialize, type Snapshot } from "@/game/snapshot";
+import { serialize, deserialize, type Snapshot } from "@/game/snapshot";
+import { LanClient, type RosterEntry } from "@/net/lan";
 import type { SimResponse } from "@/simulator/worker";
 import { Rng } from "@/game/rng";
 import { COLOR_DISPLAY, MAX_RESERVED } from "@/data/balls";
@@ -20,7 +21,7 @@ import {
   showEvolutionToast, showCaptureToast, showEvolveAvailableToast,
 } from "./view";
 
-const HUMAN_INDEX = 0;
+const DEFAULT_SEAT = 0;
 const MC_N = 200;
 const AI_DELAY_MS = 450;
 const MASTER_BALL_SPEND_CONFIRM = "이 카드를 구입하면 궁극의 드래곤볼이 소모됩니다. 계속하시겠습니까?";
@@ -29,7 +30,8 @@ const AI_NAME_CANDIDATES = [
   "투희", "체렌", "벨", "칼름", "세레나", "릴리에", "단델", "난천",
 ] as const;
 
-type Phase = "human-action" | "human-evolve" | "ai" | "ended";
+type Phase = "human-action" | "human-evolve" | "ai" | "ended" | "remote-wait";
+type NetMode = "local" | "host" | "guest";
 
 interface UIMsg { kind: "info" | "ok" | "bad"; text: string }
 
@@ -50,6 +52,15 @@ export class Controller {
   private ballPickActive = false;
   private endOverlayOpen = true; // 게임 종료 시 순위/새 게임 질문 오버레이 표시 여부
   private playerNames: string[] = ["나", "AI 1", "AI 2", "AI 3"];
+  // ── LAN 대전 상태 ──
+  private mySeat = DEFAULT_SEAT;
+  private netMode: NetMode = "local";
+  private lan: LanClient | null = null;
+  private humanSeats: Set<number> = new Set([DEFAULT_SEAT]); // 사람이 앉은 좌석(나머지는 AI)
+  private lanRoster: RosterEntry[] = [];
+  private lanError = "";
+  private lanLobbyOpen = false;
+  private pendingAction: MainAction | null = null; // 게스트: 변신 선택 중 보류된 메인 액션
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -108,7 +119,7 @@ export class Controller {
   }
 
   newGame(seed = (Math.random() * 1e9) | 0): void {
-    this.state = createGame(seed, 4, HUMAN_INDEX);
+    this.state = createGame(seed, 4, this.mySeat);
     this.assignPlayerNames(seed);
     this.phase = "human-action";
     this.msg = { kind: "info", text: `새 게임 시작 (시드 ${seed}). 선공: ${this.playerName(this.state.startingPlayer)}.` };
@@ -124,18 +135,174 @@ export class Controller {
     this.startTurn();
   }
 
-  /** 새 게임 전 확인. 게임이 진행 중이면 되묻고, 종료 상태면 바로 시작. */
+  /** 새 게임 전 확인. LAN 모드별 분기. */
   private promptNewGame(): void {
+    if (this.netMode === "guest") {
+      this.setMsg({ kind: "info", text: "새 게임은 호스트만 시작할 수 있습니다." });
+      this.render();
+      return;
+    }
     if (!this.state.ended) {
       if (!window.confirm("진행 중인 게임을 종료하고 새 게임을 시작할까요?")) return;
     }
+    if (this.netMode === "host") { this.startLanGame(); return; }
     this.newGame();
+  }
+
+  // ── LAN 대전 ─────────────────────────────────────────────────────
+  /** LAN 대기실 열기 + 릴레이 서버 접속(페이지를 서빙한 호스트와 동일 오리진). */
+  private openLanLobby(): void {
+    this.lanLobbyOpen = true;
+    if (this.lan) { this.render(); return; }
+    const name = (window.prompt("플레이어 이름을 입력하세요", "플레이어") ?? "").trim() || "플레이어";
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const url = `${proto}://${location.host}`;
+    this.lanError = "";
+    this.lan = new LanClient();
+    this.lan.connect(url, "main", name, {
+      onJoined: (seat, isHost, roster) => {
+        this.mySeat = seat;
+        this.netMode = isHost ? "host" : "guest";
+        this.lanRoster = roster;
+        this.render();
+      },
+      onRoster: (roster) => { this.lanRoster = roster; this.onLanRosterChange(); },
+      onRelay: (from, payload) => this.handleRelay(from, payload),
+      onClose: (reason) => {
+        this.lanError = reason;
+        this.lan = null;
+        this.netMode = "local";
+        this.mySeat = DEFAULT_SEAT;
+        this.humanSeats = new Set([DEFAULT_SEAT]);
+        this.render();
+      },
+    });
+    this.render();
+  }
+
+  /** 로스터 변경(입장/퇴장) 처리. 진행 중 사람 좌석이 빠지면 호스트가 그 좌석을 AI로 전환. */
+  private onLanRosterChange(): void {
+    if (this.netMode === "host" && this.state && !this.lanLobbyOpen) {
+      const connected = new Set(this.lanRoster.map((r) => r.seat));
+      let changed = false;
+      for (const s of [...this.humanSeats]) {
+        if (!connected.has(s)) { this.humanSeats.delete(s); changed = true; }
+      }
+      if (changed) {
+        this.broadcastState();
+        if (this.phase === "remote-wait" && this.isAiSeat(this.state.currentPlayer)) this.startTurn();
+      }
+    }
+    this.render();
+  }
+
+  private leaveLan(): void {
+    this.lan?.close();
+    this.lan = null;
+    this.netMode = "local";
+    this.mySeat = DEFAULT_SEAT;
+    this.humanSeats = new Set([DEFAULT_SEAT]);
+    this.lanLobbyOpen = false;
+    this.newGame();
+  }
+
+  /** 호스트: LAN 게임 시작(빈 좌석은 AI). 초기 상태를 전원에게 브로드캐스트. */
+  private startLanGame(): void {
+    if (this.netMode !== "host") return;
+    const seed = (Math.random() * 1e9) | 0;
+    this.humanSeats = new Set(this.lanRoster.map((r) => r.seat));
+    this.state = createGame(seed, 4, 0);
+    this.setLanNames(seed);
+    this.phase = "human-action";
+    this.aiLog = [];
+    this.ballPickColors = [];
+    this.ballPickActive = false;
+    this.endOverlayOpen = true;
+    this.lanLobbyOpen = false;
+    this.winRates = new Array(4).fill(0.25);
+    this.winRatesStale = true;
+    this.activeWinRateRequestId = ++this.winRateRequestSeq;
+    this.probSeed = (Math.random() * 1e9) | 0;
+    this.broadcastState();
+    this.render();
+    this.startTurn();
+  }
+
+  private setLanNames(seed: number): void {
+    const rng = new Rng((seed ^ 0x9e3779b9) >>> 0);
+    const cand = rng.shuffle([...AI_NAME_CANDIDATES]);
+    const nameBySeat = new Map(this.lanRoster.map((r) => [r.seat, r.name] as const));
+    this.playerNames = [];
+    for (let i = 0; i < this.state.numPlayers; i++) {
+      this.playerNames[i] = this.humanSeats.has(i)
+        ? (nameBySeat.get(i) ?? `P${i + 1}`)
+        : (cand.pop() ?? `AI ${i}`);
+    }
+  }
+
+  private broadcastState(): void {
+    if (this.netMode !== "host") return;
+    this.lan?.relay({
+      k: "state",
+      snapshot: serialize(this.state),
+      names: this.playerNames,
+      humanSeats: [...this.humanSeats],
+      aiLog: this.aiLog,
+    });
+  }
+
+  private handleRelay(fromSeat: number, payload: unknown): void {
+    const p = payload as { k?: string; [x: string]: unknown };
+    if (!p || typeof p !== "object") return;
+    if (this.netMode === "guest" && p.k === "state") this.applyRemoteState(p);
+    else if (this.netMode === "host" && p.k === "turn") this.applyGuestTurn(fromSeat, p);
+  }
+
+  /** 게스트: 호스트가 보낸 권위 상태로 갱신. */
+  private applyRemoteState(p: { [x: string]: unknown }): void {
+    this.state = deserialize(p.snapshot as Snapshot);
+    if (Array.isArray(p.names)) this.playerNames = p.names as string[];
+    if (Array.isArray(p.humanSeats)) this.humanSeats = new Set(p.humanSeats as number[]);
+    if (Array.isArray(p.aiLog)) this.aiLog = p.aiLog as string[];
+    this.lanLobbyOpen = false;
+    if (this.state.ended) {
+      this.phase = "ended";
+      this.endOverlayOpen = true;
+    } else if (this.state.currentPlayer === this.mySeat) {
+      this.phase = "human-action";
+      this.ballPickActive = false;
+      this.ballPickColors = [];
+      this.setMsg({ kind: "info", text: "내 차례 — 행동을 선택하세요." });
+    } else {
+      this.phase = "remote-wait";
+      this.setMsg({ kind: "info", text: `${this.playerName(this.state.currentPlayer)} 차례…` });
+    }
+    this.requestWinProb();
+    this.render();
+  }
+
+  /** 호스트: 게스트가 보낸 턴을 권위 상태에 적용. */
+  private applyGuestTurn(fromSeat: number, p: { [x: string]: unknown }): void {
+    if (this.state.ended) return;
+    if (this.state.currentPlayer !== fromSeat || !this.humanSeats.has(fromSeat)) return;
+    const action = p.action as MainAction | undefined;
+    const evolution = (p.evolution ?? null) as Evolution | null;
+    if (!action) return;
+    try {
+      applyMainAction(this.state, action);
+      if (evolution) applyEvolution(this.state, evolution);
+    } catch {
+      this.broadcastState(); // 비합법 → 현재 권위 상태로 되돌림
+      return;
+    }
+    this.pushAiLog(this.describeAction(fromSeat, action));
+    this.advance();
   }
 
   // ── Helpers ──
 
   private playerName(i: number): string {
-    return this.playerNames[i] ?? (i === HUMAN_INDEX ? "나" : `AI ${i}`);
+    return this.playerNames[i] ?? (i === this.mySeat ? "나" : `AI ${i}`);
   }
 
   private assignPlayerNames(seed: number): void {
@@ -143,12 +310,12 @@ export class Controller {
     const candidates = rng.shuffle([...AI_NAME_CANDIDATES]);
     this.playerNames = [];
     for (let i = 0; i < this.state.numPlayers; i++) {
-      this.playerNames[i] = i === HUMAN_INDEX ? "나" : candidates.pop() ?? `AI ${i}`;
+      this.playerNames[i] = i === this.mySeat ? "나" : candidates.pop() ?? `AI ${i}`;
     }
   }
 
   private isHumanTurn(): boolean {
-    return this.state.currentPlayer === HUMAN_INDEX;
+    return this.state.currentPlayer === this.mySeat;
   }
 
   private setMsg(m: UIMsg): void {
@@ -157,19 +324,41 @@ export class Controller {
 
   // ── Turn flow ──
 
+  private isAiSeat(seat: number): boolean {
+    return !this.humanSeats.has(seat);
+  }
+
   private startTurn(): void {
     if (this.state.ended) { this.phase = "ended"; this.render(); return; }
-    if (this.isHumanTurn()) {
+    const cur = this.state.currentPlayer;
+    if (cur === this.mySeat) {
+      // 내 차례
       this.phase = "human-action";
       this.ballPickColors = [];
       this.ballPickActive = false;
       this.setMsg({ kind: "info", text: "내 차례 — 행동을 선택하세요." });
       this.render();
-    } else {
+      return;
+    }
+    // 남의 차례
+    if (this.netMode === "guest") {
+      // 게스트는 호스트의 상태 브로드캐스트만 기다린다(로컬 진행 없음).
+      this.phase = "remote-wait";
+      this.setMsg({ kind: "info", text: `${this.playerName(cur)} 차례…` });
+      this.render();
+      return;
+    }
+    if (this.isAiSeat(cur)) {
+      // AI 좌석: (로컬/호스트가) AI 실행
       this.phase = "ai";
-      this.setMsg({ kind: "info", text: `${this.playerName(this.state.currentPlayer)} 차례…` });
+      this.setMsg({ kind: "info", text: `${this.playerName(cur)} 차례…` });
       this.render();
       setTimeout(() => this.aiMove(), AI_DELAY_MS);
+    } else {
+      // 호스트인데 원격 사람 좌석 차례 → 그 게스트의 행동을 기다린다
+      this.phase = "remote-wait";
+      this.setMsg({ kind: "info", text: `${this.playerName(cur)} 차례…` });
+      this.render();
     }
   }
 
@@ -196,6 +385,7 @@ export class Controller {
 
   private advance(): void {
     finishTurn(this.state);
+    if (this.netMode === "host") this.broadcastState();
     this.requestWinProb();
     this.startTurn();
   }
@@ -247,11 +437,12 @@ export class Controller {
       }
     }
 
-    const fusesBefore = this.state.players[HUMAN_INDEX]!.fusions.slice();
+    const fusesBefore = this.state.players[this.mySeat]!.fusions.slice();
     applyMainAction(this.state, action);
     this.notifyHumanFusion(fusesBefore);
     this.ballPickActive = false;
     this.ballPickColors = [];
+    this.pendingAction = action;
     const evos = legalEvolutions(this.state);
     if (evos.length > 0) {
       this.phase = "human-evolve";
@@ -259,25 +450,39 @@ export class Controller {
       showEvolveAvailableToast();
       this.render();
     } else {
-      this.advance();
+      this.finishHumanTurn(action, null);
     }
   }
 
   private humanEvolve(evo: Evolution | null): void {
     if (this.phase !== "human-evolve") return;
     if (evo) {
-      const fusesBefore = this.state.players[HUMAN_INDEX]!.fusions.slice();
+      const fusesBefore = this.state.players[this.mySeat]!.fusions.slice();
       applyEvolution(this.state, evo);
       const targetCard = cardOf(evo.targetId);
       showEvolutionToast(targetCard.name);
       this.notifyHumanFusion(fusesBefore);
     }
-    this.advance();
+    this.finishHumanTurn(this.pendingAction, evo);
+  }
+
+  /** 내 턴 마무리. 로컬/호스트는 즉시 진행, 게스트는 호스트에 의도 전송 후 대기. */
+  private finishHumanTurn(action: MainAction | null, evolution: Evolution | null): void {
+    this.pendingAction = null;
+    if (this.netMode === "guest") {
+      // 메인 액션·변신은 이미 낙관적으로 로컬 상태에 적용됨. 호스트가 권위 상태를 재계산·브로드캐스트한다.
+      if (action) this.lan?.relay({ k: "turn", action, evolution });
+      this.phase = "remote-wait";
+      this.setMsg({ kind: "info", text: "내 턴 전송 — 다른 플레이어를 기다리는 중…" });
+      this.render();
+    } else {
+      this.advance();
+    }
   }
 
   /** 이번 액션으로 새로 획득한 퓨전을 토스트로 알린다. */
   private notifyHumanFusion(before: string[]): void {
-    const me = this.state.players[HUMAN_INDEX]!;
+    const me = this.state.players[this.mySeat]!;
     for (const r of me.fusions) {
       if (before.includes(r)) continue;
       const f = FUSION_BY_ROMANIZED[r];
@@ -349,7 +554,7 @@ export class Controller {
     const act = acts[0];
     if (act) { this.humanPlay(act); return; }
     const card = cardOf(id);
-    const me = this.state.players[HUMAN_INDEX]!;
+    const me = this.state.players[this.mySeat]!;
     this.setMsg({ kind: "bad", text: this.whyNotAfford(me, card) });
     this.render();
   }
@@ -359,7 +564,7 @@ export class Controller {
     const act = acts[0];
     if (act) { this.humanPlay(act); return; }
     const card = cardOf(id);
-    const me = this.state.players[HUMAN_INDEX]!;
+    const me = this.state.players[this.mySeat]!;
     this.setMsg({ kind: "bad", text: this.whyNotReserve(me, card) });
     this.render();
   }
@@ -369,7 +574,7 @@ export class Controller {
     const act = acts[0];
     if (act) { this.humanPlay(act); return; }
     const card = cardOf(id);
-    const me = this.state.players[HUMAN_INDEX]!;
+    const me = this.state.players[this.mySeat]!;
     this.setMsg({ kind: "bad", text: this.whyNotAfford(me, card) });
     this.render();
   }
@@ -407,7 +612,7 @@ export class Controller {
   private humanHasFusionRecipe(romanized: string): boolean {
     const f = FUSION_BY_ROMANIZED[romanized];
     if (!f) return false;
-    const me = this.state.players[HUMAN_INDEX]!;
+    const me = this.state.players[this.mySeat]!;
     return f.recipe.every((req) =>
       me.scored.some((id) => {
         const c = cardOf(id);
@@ -482,9 +687,47 @@ export class Controller {
     this.root.replaceChildren(
       this.renderGameLayout(),
     );
-    if (this.state.ended && this.endOverlayOpen) {
+    if (this.state.ended && this.endOverlayOpen && !this.lanLobbyOpen) {
       this.root.append(this.renderEndOverlay());
     }
+    if (this.lanLobbyOpen) {
+      this.root.append(this.renderLanOverlay());
+    }
+  }
+
+  private renderLanOverlay(): HTMLElement {
+    const children: (HTMLElement | string)[] = [
+      el("h2", { class: "card-title text-xl justify-center text-info mb-2" }, [
+        el("i", { class: "fa-solid fa-network-wired mr-2" }),
+        "LAN 대전 대기실",
+      ]),
+    ];
+    const rows = this.lanRoster.map((r) => el("li", { class: "flex items-center gap-2 py-1" }, [
+      el("i", { class: "fa-solid fa-user text-xs opacity-60" }),
+      `좌석 ${r.seat + 1}: ${r.name}`,
+      r.seat === 0 ? el("span", { class: "badge badge-xs badge-warning" }, ["호스트"]) : "",
+      r.seat === this.mySeat ? el("span", { class: "badge badge-xs badge-info" }, ["나"]) : "",
+    ]));
+    children.push(el("ul", { class: "my-2" }, rows.length ? rows : [el("li", { class: "opacity-60" }, ["서버 접속 중…"])]));
+    if (this.lanError) children.push(el("div", { class: "alert alert-error py-2 px-3 text-sm my-2" }, [this.lanError]));
+
+    if (this.netMode === "host") {
+      children.push(el("div", { class: "text-xs opacity-70 mb-2" }, ["빈 자리는 AI로 채워집니다. 모두 입장한 뒤 시작하세요."]));
+      children.push(el("button", {
+        class: "btn btn-warning w-full",
+        onclick: () => this.startLanGame(),
+      }, [el("i", { class: "fa-solid fa-play mr-1" }), "게임 시작"]));
+    } else if (this.lan) {
+      children.push(el("div", { class: "opacity-70 text-sm mb-2" }, ["호스트가 게임을 시작하기를 기다리는 중…"]));
+    }
+    children.push(el("div", { class: "card-actions justify-center mt-3 gap-2" }, [
+      el("button", { class: "btn btn-ghost btn-sm", onclick: () => { this.lanLobbyOpen = false; this.render(); } }, ["숨기기"]),
+      el("button", { class: "btn btn-ghost btn-sm text-error", onclick: () => this.leaveLan() }, ["나가기"]),
+    ]));
+
+    return el("div", { class: "endgame-overlay" }, [
+      el("div", { class: "card bg-base-200 shadow-2xl p-6 max-w-md w-80" }, children),
+    ]);
   }
 
   private renderGameLayout(): HTMLElement {
@@ -529,7 +772,20 @@ export class Controller {
         ])
       : "";
 
-    return el("div", { class: "game-header" }, [
+    const lanBtn = this.netMode === "local"
+      ? el("button", {
+          class: "btn btn-sm btn-info btn-outline",
+          onclick: () => this.openLanLobby(),
+        }, [el("i", { class: "fa-solid fa-network-wired mr-1" }), "LAN 대전"])
+      : el("button", {
+          class: "btn btn-sm btn-info btn-outline",
+          onclick: () => { this.lanLobbyOpen = true; this.render(); },
+        }, [
+          el("i", { class: "fa-solid fa-network-wired mr-1" }),
+          this.netMode === "host" ? "대기실(호스트)" : "대기실",
+        ]);
+
+    const children: (HTMLElement | string)[] = [
       el("span", { class: "title" }, [
         el("i", { class: "fa-solid fa-gamepad mr-1" }),
         "드래곤볼 스플렌더",
@@ -540,8 +796,12 @@ export class Controller {
       ]),
       logEl,
       rankBtn,
-      newGameBtn,
-    ]);
+      lanBtn,
+    ];
+    // 게스트는 새 게임을 시작할 수 없음(호스트 권한)
+    if (this.netMode !== "guest") children.push(newGameBtn);
+
+    return el("div", { class: "game-header" }, children);
   }
 
   // ── Board (card field) ──
@@ -705,9 +965,9 @@ export class Controller {
   private boardCardEl(id: string): HTMLElement {
     const card = cardOf(id);
     const myTurn = this.isHumanTurn() && this.phase === "human-action";
-    const affordable = canAfford(this.state.players[HUMAN_INDEX]!, card);
+    const affordable = canAfford(this.state.players[this.mySeat]!, card);
     const isStage = card.tier === 1 || card.tier === 2 || card.tier === 3;
-    const me = this.state.players[HUMAN_INDEX]!;
+    const me = this.state.players[this.mySeat]!;
     const reserveOk = isStage && me.reserved.length < MAX_RESERVED;
 
     const clickable = myTurn;
@@ -753,7 +1013,7 @@ export class Controller {
 
     // AI panels
     for (let i = 0; i < this.state.numPlayers; i++) {
-      if (i !== HUMAN_INDEX) right.append(this.renderAiPanel(i));
+      if (i !== this.mySeat) right.append(this.renderAiPanel(i));
     }
 
     // Action / message area
@@ -763,9 +1023,9 @@ export class Controller {
   }
 
   private renderMePanel(): HTMLElement {
-    const p = this.state.players[HUMAN_INDEX]!;
+    const p = this.state.players[this.mySeat]!;
     const cls = ["player-panel"];
-    if (this.state.currentPlayer === HUMAN_INDEX && !this.state.ended) cls.push("current-turn");
+    if (this.state.currentPlayer === this.mySeat && !this.state.ended) cls.push("current-turn");
 
     const panel = el("div", { class: cls.join(" ") });
 
@@ -1038,7 +1298,7 @@ export class Controller {
     const requestId = ++this.winRateRequestSeq;
     this.activeWinRateRequestId = requestId;
     this.winRatesStale = true;
-    this.worker.postMessage({ requestId, snapshot: snap, humanIndex: HUMAN_INDEX, n: MC_N, seed: this.probSeed++ });
+    this.worker.postMessage({ requestId, snapshot: snap, humanIndex: this.mySeat, n: MC_N, seed: this.probSeed++ });
   }
 
   private renderProbs(): void {
@@ -1054,7 +1314,7 @@ export class Controller {
       const p = this.state.players[i]!;
       const pct = this.winRatesStale ? null : this.winRates[i];
       const cls = ["prob-item"];
-      if (i === HUMAN_INDEX) cls.push("me");
+      if (i === this.mySeat) cls.push("me");
       if (i === this.state.currentPlayer && !this.state.ended) cls.push("current");
       probs.append(el("div", { class: cls.join(" "), title: `${this.playerName(i)} ${playerPoints(p)}점` }, [
         el("span", { class: "text-xs opacity-70" }, [this.playerName(i)]),
