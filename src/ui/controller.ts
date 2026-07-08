@@ -60,6 +60,8 @@ export class Controller {
   private lanRoster: RosterEntry[] = [];
   private lanError = "";
   private lanLobbyOpen = false;
+  private lanJoined = false; // 대기실에서 좌석 착석 여부(false=관전 상태)
+  private lanName = ""; // 대기실 닉네임 입력값
   private pendingAction: MainAction | null = null; // 게스트: 변신 선택 중 보류된 메인 액션
 
   constructor(root: HTMLElement) {
@@ -150,20 +152,21 @@ export class Controller {
   }
 
   // ── LAN 대전 ─────────────────────────────────────────────────────
-  /** LAN 대기실 열기 + 릴레이 서버 접속(페이지를 서빙한 호스트와 동일 오리진). */
+  /** LAN 대기실 열기 + 릴레이 서버에 관전 접속(닉네임은 대기실에서 입력해 입장). */
   private openLanLobby(): void {
     this.lanLobbyOpen = true;
     if (this.lan) { this.render(); return; }
-    const name = (window.prompt("플레이어 이름을 입력하세요", "플레이어") ?? "").trim() || "플레이어";
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const url = `${proto}://${location.host}`;
     this.lanError = "";
+    this.lanJoined = false;
     this.lan = new LanClient();
-    this.lan.connect(url, "main", name, {
+    this.lan.connect(url, "main", {
       onJoined: (seat, isHost, roster) => {
         this.mySeat = seat;
         this.netMode = isHost ? "host" : "guest";
         this.lanRoster = roster;
+        this.lanJoined = true;
         this.render();
       },
       onRoster: (roster) => { this.lanRoster = roster; this.onLanRosterChange(); },
@@ -174,10 +177,21 @@ export class Controller {
         this.netMode = "local";
         this.mySeat = DEFAULT_SEAT;
         this.humanSeats = new Set([DEFAULT_SEAT]);
+        this.lanJoined = false;
         this.render();
       },
     });
     this.render();
+  }
+
+  /** 대기실에서 닉네임으로 착석. */
+  private joinLan(): void {
+    if (!this.lan || this.lanJoined) return;
+    if (this.lanRoster.length >= 4) { this.lanError = "방이 가득 찼습니다 (최대 4명)."; this.render(); return; }
+    const name = this.lanName.trim() || "플레이어";
+    this.lanName = name;
+    this.lanError = "";
+    this.lan.join(name);
   }
 
   /** 로스터 변경(입장/퇴장) 처리. 진행 중 사람 좌석이 빠지면 호스트가 그 좌석을 AI로 전환. */
@@ -203,6 +217,7 @@ export class Controller {
     this.mySeat = DEFAULT_SEAT;
     this.humanSeats = new Set([DEFAULT_SEAT]);
     this.lanLobbyOpen = false;
+    this.lanJoined = false;
     this.newGame();
   }
 
@@ -702,23 +717,44 @@ export class Controller {
         "LAN 대전 대기실",
       ]),
     ];
+    // 실시간 대기자 목록
+    children.push(el("div", { class: "text-xs opacity-60 mt-1" }, [`대기 중 (${this.lanRoster.length}/4)`]));
     const rows = this.lanRoster.map((r) => el("li", { class: "flex items-center gap-2 py-1" }, [
       el("i", { class: "fa-solid fa-user text-xs opacity-60" }),
       `좌석 ${r.seat + 1}: ${r.name}`,
       r.seat === 0 ? el("span", { class: "badge badge-xs badge-warning" }, ["호스트"]) : "",
-      r.seat === this.mySeat ? el("span", { class: "badge badge-xs badge-info" }, ["나"]) : "",
+      this.lanJoined && r.seat === this.mySeat ? el("span", { class: "badge badge-xs badge-info" }, ["나"]) : "",
     ]));
-    children.push(el("ul", { class: "my-2" }, rows.length ? rows : [el("li", { class: "opacity-60" }, ["서버 접속 중…"])]));
+    children.push(el("ul", { class: "my-2" }, rows.length ? rows : [el("li", { class: "opacity-60" }, ["아직 아무도 없습니다 — 첫 입장자가 호스트가 됩니다."])]));
     if (this.lanError) children.push(el("div", { class: "alert alert-error py-2 px-3 text-sm my-2" }, [this.lanError]));
 
-    if (this.netMode === "host") {
-      children.push(el("div", { class: "text-xs opacity-70 mb-2" }, ["빈 자리는 AI로 채워집니다. 모두 입장한 뒤 시작하세요."]));
+    if (!this.lanJoined) {
+      // 착석 전: 닉네임 입력 후 입장
+      const nameInput = el("input", {
+        class: "input input-bordered input-sm w-full",
+        type: "text",
+        maxLength: 20,
+        placeholder: "닉네임 입력",
+        value: this.lanName,
+        oninput: (e: Event) => { this.lanName = (e.target as HTMLInputElement).value; },
+        onkeydown: (e: KeyboardEvent) => { if (e.key === "Enter") this.joinLan(); },
+      });
+      children.push(el("div", { class: "flex gap-2 mt-2" }, [
+        nameInput,
+        el("button", {
+          class: "btn btn-info btn-sm",
+          onclick: () => this.joinLan(),
+        }, [el("i", { class: "fa-solid fa-right-to-bracket mr-1" }), "입장"]),
+      ]));
+      if (this.lanRoster.length >= 4) children.push(el("div", { class: "text-xs text-error mt-1" }, ["방이 가득 찼습니다."]));
+    } else if (this.netMode === "host") {
+      children.push(el("div", { class: "text-xs opacity-70 my-2" }, ["빈 자리는 AI로 채워집니다. 모두 입장한 뒤 시작하세요."]));
       children.push(el("button", {
         class: "btn btn-warning w-full",
         onclick: () => this.startLanGame(),
       }, [el("i", { class: "fa-solid fa-play mr-1" }), "게임 시작"]));
-    } else if (this.lan) {
-      children.push(el("div", { class: "opacity-70 text-sm mb-2" }, ["호스트가 게임을 시작하기를 기다리는 중…"]));
+    } else {
+      children.push(el("div", { class: "opacity-70 text-sm my-2" }, ["호스트가 게임을 시작하기를 기다리는 중…"]));
     }
     children.push(el("div", { class: "card-actions justify-center mt-3 gap-2" }, [
       el("button", { class: "btn btn-ghost btn-sm", onclick: () => { this.lanLobbyOpen = false; this.render(); } }, ["숨기기"]),

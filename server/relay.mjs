@@ -39,12 +39,12 @@ const server = createServer((req, res) => {
 // ── WebSocket 릴레이 ─────────────────────────────────────────────────
 const wss = new WebSocketServer({ server });
 
-/** roomCode -> { members: Map<seat, {ws, name}> } */
+/** roomCode -> { members: Map<seat, {ws, name}>, watchers: Set<ws> } */
 const rooms = new Map();
 
 function roomOf(code) {
   let r = rooms.get(code);
-  if (!r) { r = { members: new Map() }; rooms.set(code, r); }
+  if (!r) { r = { members: new Map(), watchers: new Set() }; rooms.set(code, r); }
   return r;
 }
 
@@ -66,6 +66,7 @@ function send(ws, obj) {
 function broadcastRoster(room) {
   const roster = rosterOf(room);
   for (const m of room.members.values()) send(m.ws, { t: "roster", roster });
+  for (const w of room.watchers) send(w, { t: "roster", roster });
 }
 
 wss.on("connection", (ws) => {
@@ -75,15 +76,27 @@ wss.on("connection", (ws) => {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
 
-    if (msg.t === "join") {
+    // 관전(대기실만 구독): 좌석을 차지하지 않고 실시간 로스터만 받는다.
+    if (msg.t === "watch") {
       const code = String(msg.room ?? "main");
       const room = roomOf(code);
+      room.watchers.add(ws);
+      ws.meta = { room: code, seat: -1 };
+      send(ws, { t: "roster", roster: rosterOf(room) });
+      return;
+    }
+
+    if (msg.t === "join") {
+      const code = String(msg.room ?? ws.meta.room ?? "main");
+      const room = roomOf(code);
+      if (ws.meta.seat >= 0) return; // 이미 착석
       const seat = firstFreeSeat(room);
       if (seat < 0) { send(ws, { t: "full" }); return; }
       const name = String(msg.name ?? `P${seat + 1}`).slice(0, 20);
+      room.watchers.delete(ws);
       room.members.set(seat, { ws, name });
       ws.meta = { room: code, seat };
-      const isHost = seat === 0; // 좌석 0(첫 참가자) = 호스트
+      const isHost = seat === 0; // 좌석 0(첫 착석자) = 호스트
       send(ws, { t: "joined", seat, isHost, roster: rosterOf(room) });
       broadcastRoster(room);
       console.log(`[lan] join room=${code} seat=${seat} name=${name}`);
@@ -111,11 +124,14 @@ wss.on("connection", (ws) => {
     if (code == null) return;
     const room = rooms.get(code);
     if (!room) return;
+    room.watchers.delete(ws);
+    if (seat < 0) { return; } // 관전자 이탈 → 좌석 영향 없음
     room.members.delete(seat);
     console.log(`[lan] leave room=${code} seat=${seat}`);
     if (seat === 0) {
       // 호스트 이탈 → 방 종료 안내 후 정리
       for (const m of room.members.values()) send(m.ws, { t: "host-left" });
+      for (const w of room.watchers) send(w, { t: "host-left" });
       room.members.clear();
       rooms.delete(code);
     } else {

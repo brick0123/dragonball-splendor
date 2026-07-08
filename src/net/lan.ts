@@ -15,15 +15,18 @@ export interface LanHandlers {
 
 export class LanClient {
   private ws: WebSocket | null = null;
+  private room = "main";
   seat = -1;
   isHost = false;
 
-  /** url 예: `ws://localhost:5178`. room 은 방 코드, name 은 표시 이름. */
-  connect(url: string, room: string, name: string, h: LanHandlers): void {
+  /** 서버 접속 + 대기실 구독(관전). 아직 좌석을 차지하지 않는다. join() 으로 착석.
+   *  url 예: `ws://localhost:5178`. */
+  connect(url: string, room: string, h: LanHandlers): void {
+    this.room = room;
     const ws = new WebSocket(url);
     this.ws = ws;
     ws.addEventListener("open", () => {
-      ws.send(JSON.stringify({ t: "join", room, name }));
+      ws.send(JSON.stringify({ t: "watch", room }));
     });
     ws.addEventListener("message", (ev) => {
       let m: any;
@@ -50,6 +53,13 @@ export class LanClient {
     });
     ws.addEventListener("close", () => h.onClose("연결이 끊어졌습니다."));
     ws.addEventListener("error", () => h.onClose("서버에 연결할 수 없습니다."));
+  }
+
+  /** 닉네임으로 착석(좌석 배정 요청). onJoined 로 결과 수신. */
+  join(name: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ t: "join", room: this.room, name }));
+    }
   }
 
   /** 앱 레벨 메시지 릴레이(호스트→전원 / 게스트→호스트). */
