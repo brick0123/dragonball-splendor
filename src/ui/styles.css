@@ -1465,35 +1465,68 @@ button, input, select, textarea {
   z-index: -1;
 }
 .bgm-audio iframe { width: 320px; height: 180px; border: 0; }
-/* ── 상단 헤더 뮤직 플레이어 컨트롤 ── */
+/* ── 상단 헤더 BGM on/off 토글 스위치 ── */
 .bgm-player {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 10px;
+  gap: 7px;
+  padding: 3px 8px 3px 11px;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(255,203,5,0.16), rgba(255,203,5,0.06));
   border: 1px solid rgba(255,203,5,0.3);
 }
-.bgm-player .bgm-disc { color: #ffcb05; font-size: 13px; animation: bgm-spin 3s linear infinite; }
-.bgm-player .bgm-disc.paused { animation-play-state: paused; }
 .bgm-player .bgm-label { font-size: 11px; font-weight: 800; color: #ffcb05; letter-spacing: 0.5px; }
-.bgm-btn {
-  width: 24px;
+.bgm-switch {
+  position: relative;
+  width: 58px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: 999px;
   border: none;
   cursor: pointer;
-  background: rgba(255,255,255,0.1);
-  color: #fff;
-  font-size: 11px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
+  padding: 0;
+  transition: background 0.2s;
+  overflow: hidden;
 }
-.bgm-btn:hover { background: rgba(255,203,5,0.35); color: #1a1205; }
-@keyframes bgm-spin { to { transform: rotate(360deg); } }
+.bgm-switch.on  { background: #22c55e; }
+.bgm-switch.off { background: rgba(255,255,255,0.18); }
+.bgm-track-txt {
+  position: absolute;
+  top: 0;
+  height: 24px;
+  line-height: 24px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  transition: opacity 0.2s;
+}
+.bgm-on-txt  { left: 9px;  color: #08340f; }
+.bgm-off-txt { right: 7px; color: #cbd5e1; }
+.bgm-switch.on  .bgm-off-txt { opacity: 0; }
+.bgm-switch.off .bgm-on-txt  { opacity: 0; }
+.bgm-knob {
+  position: absolute;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  transition: left 0.2s;
+}
+.bgm-switch.on  .bgm-knob { left: 37px; }
+.bgm-switch.off .bgm-knob { left: 3px; }
+
+/* 커스텀 아이콘 매핑 추가분(::before content 방식) */
+.fa-music::before { content: "♪"; }
+.fa-arrow-down::before { content: "↓"; }
+.fa-arrow-up::before { content: "↑"; }
+.fa-dragon::before { content: "龍"; }
+.fa-network-wired::before { content: "⇄"; }
+.fa-ranking-star::before { content: "🏅"; }
+.fa-right-to-bracket::before { content: "→"; }
+.fa-xmark::before { content: "✕"; }
+.fa-play::before { content: "▶"; }
+.fa-pause::before { content: "⏸"; }
 
 /* ── Tooltip ──────────────────────────────────────── */
 .card-tooltip {

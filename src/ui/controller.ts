@@ -65,8 +65,7 @@ export class Controller {
   private pendingAction: MainAction | null = null; // 게스트: 변신 선택 중 보류된 메인 액션
   // ── BGM ──
   private bgmIframe: HTMLIFrameElement | null = null;
-  private bgmPlaying = true;
-  private bgmMuted = true;
+  private bgmOn = true; // 기본 ON(자동 재생 의도). 브라우저 정책상 최초 소리는 첫 입력 때 켜짐.
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -95,15 +94,8 @@ export class Controller {
     document.body.append(holder);
     this.bgmIframe = iframe;
 
-    // 첫 사용자 입력 시 음소거 해제 + 재생 (자동재생 정책 우회)
-    const enableSound = () => {
-      this.bgmMuted = false;
-      this.bgmPlaying = true;
-      this.bgmCmd("unMute");
-      this.bgmCmd("setVolume", [100]);
-      this.bgmCmd("playVideo");
-      this.render();
-    };
+    // 첫 사용자 입력 시(브라우저 자동재생 정책) 실제 소리를 켠다. bgmOn 이면 재생.
+    const enableSound = () => { if (this.bgmOn) this.applyBgm(); };
     window.addEventListener("pointerdown", enableSound, { once: true });
     window.addEventListener("keydown", enableSound, { once: true });
   }
@@ -114,34 +106,37 @@ export class Controller {
     );
   }
 
-  private toggleBgmPlay(): void {
-    this.bgmPlaying = !this.bgmPlaying;
-    this.bgmCmd(this.bgmPlaying ? "playVideo" : "pauseVideo");
+  /** 현재 bgmOn 상태를 실제 플레이어에 반영. */
+  private applyBgm(): void {
+    if (this.bgmOn) {
+      this.bgmCmd("unMute");
+      this.bgmCmd("setVolume", [100]);
+      this.bgmCmd("playVideo");
+    } else {
+      this.bgmCmd("pauseVideo");
+    }
+  }
+
+  private toggleBgm(): void {
+    this.bgmOn = !this.bgmOn;
+    this.applyBgm();
     this.render();
   }
 
-  private toggleBgmMute(): void {
-    this.bgmMuted = !this.bgmMuted;
-    if (this.bgmMuted) { this.bgmCmd("mute"); }
-    else { this.bgmCmd("unMute"); this.bgmCmd("setVolume", [100]); if (!this.bgmPlaying) { this.bgmPlaying = true; this.bgmCmd("playVideo"); } }
-    this.render();
-  }
-
-  /** 상단 헤더용 뮤직 플레이어 컨트롤. */
+  /** 상단 헤더용 BGM on/off 토글 스위치. */
   private renderBgmPlayer(): HTMLElement {
-    return el("div", { class: "bgm-player", title: "드래곤볼 BGM" }, [
-      el("i", { class: `fa-solid fa-compact-disc bgm-disc${this.bgmPlaying ? "" : " paused"}` }),
+    return el("div", { class: "bgm-player", title: "BGM 켜기/끄기" }, [
       el("span", { class: "bgm-label" }, ["BGM"]),
       el("button", {
-        class: "bgm-btn",
-        title: this.bgmPlaying ? "일시정지" : "재생",
-        onclick: () => this.toggleBgmPlay(),
-      }, [el("i", { class: `fa-solid ${this.bgmPlaying ? "fa-pause" : "fa-play"}` })]),
-      el("button", {
-        class: "bgm-btn",
-        title: this.bgmMuted ? "소리 켜기" : "음소거",
-        onclick: () => this.toggleBgmMute(),
-      }, [el("i", { class: `fa-solid ${this.bgmMuted ? "fa-volume-xmark" : "fa-volume-high"}` })]),
+        class: `bgm-switch ${this.bgmOn ? "on" : "off"}`,
+        role: "switch",
+        "aria-checked": this.bgmOn ? "true" : "false",
+        onclick: () => this.toggleBgm(),
+      }, [
+        el("span", { class: "bgm-track-txt bgm-on-txt" }, ["ON"]),
+        el("span", { class: "bgm-track-txt bgm-off-txt" }, ["OFF"]),
+        el("span", { class: "bgm-knob" }),
+      ]),
     ]);
   }
 
