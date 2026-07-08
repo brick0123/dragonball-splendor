@@ -1155,6 +1155,8 @@ button, input, select, textarea {
   height: var(--card-height);
   border-width: 3px;
 }
+/* 이미 획득한 카드는 '구매 비용' pip 불필요(진화 볼·점수·구슬만) — 혼동 방지 */
+.scored-stacks--me .pc-cost { display: none; }
 
 /* 보관 카드도 보드 카드(poke-card) 그대로 — 작게 */
 .card-scroll .reserved-poke,
@@ -1934,9 +1936,9 @@ button, input, select, textarea {
     min-height: 100dvh;
   }
   :root {
-    /* 화면 폭에 4장이 꽉 차게(가로 스크롤 없이) */
-    --card-width: clamp(64px, calc((100vw - 62px) / 4), 128px);
-    --card-image-height: clamp(60px, 20vw, 96px);
+    /* 모바일: 한 줄에 2장 정도 보이고 나머지는 가로 스크롤(4장은 너무 찌부됨) */
+    --card-width: clamp(150px, 42vw, 190px);
+    --card-image-height: clamp(96px, 24vw, 130px);
     --mini-card-width: 52px;
     --scored-stack-overlap: 34px;
     --ai-scored-stack-overlap: 22px;
@@ -2134,18 +2136,20 @@ button, input, select, textarea {
     color: rgba(255,255,255,0.65);
   }
   .tier-cards {
-    gap: 4px;
-    overflow-x: visible;
+    gap: 8px;
+    overflow-x: auto;
     flex-wrap: nowrap;
-    padding: 1px 0 4px;
+    padding: 1px 2px 6px;
     flex: 1 1 auto;
     min-width: 0;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
   }
-  /* 카드를 줄 폭에 맞게 균등 축소 → 한 줄에 다 보이고 가로 스크롤 없음 */
+  /* 2장씩 보이도록 고정 폭 + 가로 스크롤 */
   .tier-cards > .poke-card {
-    flex: 1 1 0;
-    min-width: 0;
-    width: auto;
+    flex: 0 0 var(--card-width);
+    width: var(--card-width);
+    scroll-snap-align: start;
   }
   .poke-card {
     flex-basis: var(--card-width);
@@ -2153,16 +2157,25 @@ button, input, select, textarea {
     min-height: 0;
     border-radius: 7px;
   }
-  /* 좁은 카드에서 이름이 1글자만 보이던 문제 → 하단 전체 폭 라벨로 */
   .poke-card .pc-name {
-    left: 2px;
-    right: 2px;
-    bottom: 2px;
-    max-width: none;
-    padding: 1px 3px;
-    font-size: 8.5px;
-    border-width: 1px;
+    right: 6px;
+    bottom: 6px;
+    max-width: calc(100% - 40px);
+    padding: 2px 8px;
+    font-size: 11px;
+    border-width: 2px;
   }
+  /* 카드가 작아진 만큼 헤더 요소(점수·구슬·진화·비용)도 비례 축소 */
+  .poke-card .pc-head { min-height: 54px; padding: 3px 6px; }
+  .poke-card .pc-pts { font-size: 30px; left: 7px; }
+  .poke-card .pc-bonus { top: 5px; right: 5px; gap: 2px; }
+  .poke-card .pc-bonus img { width: 30px; height: 30px; }
+  .poke-card .pc-evo-img { width: 26px; height: 33px; }
+  .poke-card .pc-evo-cost { font-size: 13px; }
+  .poke-card .pc-evo-cost img { width: 13px; height: 13px; }
+  .poke-card .pc-chip { width: 25px; height: 25px; }
+  .poke-card .pc-chip-n { font-size: 13px; }
+  .poke-card .pc-chip img { width: 12px; height: 12px; }
   .card-img {
     height: var(--card-image-height);
   }
