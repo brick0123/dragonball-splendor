@@ -63,6 +63,10 @@ export class Controller {
   private lanJoined = false; // 대기실에서 좌석 착석 여부(false=관전 상태)
   private lanName = ""; // 대기실 닉네임 입력값
   private pendingAction: MainAction | null = null; // 게스트: 변신 선택 중 보류된 메인 액션
+  // ── BGM ──
+  private bgmIframe: HTMLIFrameElement | null = null;
+  private bgmPlaying = true;
+  private bgmMuted = true;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -76,48 +80,69 @@ export class Controller {
     this.mountMusicPlayer();
   }
 
-  /** 우측 하단 BGM 유튜브 플레이어(자동 재생). root 재렌더와 무관하게 body 에 1회만 마운트. */
+  /** BGM 유튜브: 화면엔 숨긴 오디오 소스로만 body 에 1회 마운트(영상 미표시).
+   *  재생/음소거는 상단 헤더의 뮤직 플레이어 컨트롤로 조작. */
   private mountMusicPlayer(): void {
-    if (document.querySelector(".yt-player")) return;
+    if (this.bgmIframe) return;
     const VIDEO_ID = "uC8sc0cQa9M";
     const iframe = document.createElement("iframe");
-    // 브라우저 자동재생 정책상 소리 켠 자동재생은 차단되므로, 음소거로 자동재생 후 첫 입력 때 소리를 켠다.
-    iframe.src = `https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${VIDEO_ID}&controls=1&rel=0&playsinline=1&enablejsapi=1`;
+    // 음소거로 자동재생 시작(정책) → 첫 입력 때 소리 켬. display:none 이면 오디오가 멈추므로 화면 밖 1px 로 숨김.
+    iframe.src = `https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${VIDEO_ID}&controls=0&rel=0&playsinline=1&enablejsapi=1`;
     iframe.title = "BGM";
-    iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+    iframe.allow = "autoplay; encrypted-media";
     iframe.setAttribute("frameborder", "0");
-    iframe.allowFullscreen = true;
+    const holder = el("div", { class: "bgm-audio" }, [iframe]);
+    document.body.append(holder);
+    this.bgmIframe = iframe;
 
-    const toggle = el("button", { class: "yt-toggle", title: "접기/펼치기" }, [
-      el("i", { class: "fa-solid fa-chevron-down" }),
-    ]);
-    const bar = el("div", { class: "yt-bar" }, [
-      el("span", { class: "yt-title" }, [
-        el("i", { class: "fa-solid fa-music mr-1" }),
-        "BGM",
-      ]),
-      toggle,
-    ]);
-    const wrap = el("div", { class: "yt-player" }, [bar, iframe]);
-    toggle.addEventListener("click", () => {
-      wrap.classList.toggle("min");
-      const icon = toggle.querySelector("i");
-      if (icon) icon.className = wrap.classList.contains("min")
-        ? "fa-solid fa-chevron-up"
-        : "fa-solid fa-chevron-down";
-    });
-    document.body.append(wrap);
-
-    // 첫 사용자 입력(클릭/키) 시 음소거 해제 + 최대 볼륨 재생 (자동재생 정책 우회)
+    // 첫 사용자 입력 시 음소거 해제 + 재생 (자동재생 정책 우회)
     const enableSound = () => {
-      const cw = iframe.contentWindow;
-      if (!cw) return;
-      for (const [func, args] of [["unMute", []], ["setVolume", [100]], ["playVideo", []]] as const) {
-        cw.postMessage(JSON.stringify({ event: "command", func, args }), "*");
-      }
+      this.bgmMuted = false;
+      this.bgmPlaying = true;
+      this.bgmCmd("unMute");
+      this.bgmCmd("setVolume", [100]);
+      this.bgmCmd("playVideo");
+      this.render();
     };
     window.addEventListener("pointerdown", enableSound, { once: true });
     window.addEventListener("keydown", enableSound, { once: true });
+  }
+
+  private bgmCmd(func: string, args: unknown[] = []): void {
+    this.bgmIframe?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func, args }), "*",
+    );
+  }
+
+  private toggleBgmPlay(): void {
+    this.bgmPlaying = !this.bgmPlaying;
+    this.bgmCmd(this.bgmPlaying ? "playVideo" : "pauseVideo");
+    this.render();
+  }
+
+  private toggleBgmMute(): void {
+    this.bgmMuted = !this.bgmMuted;
+    if (this.bgmMuted) { this.bgmCmd("mute"); }
+    else { this.bgmCmd("unMute"); this.bgmCmd("setVolume", [100]); if (!this.bgmPlaying) { this.bgmPlaying = true; this.bgmCmd("playVideo"); } }
+    this.render();
+  }
+
+  /** 상단 헤더용 뮤직 플레이어 컨트롤. */
+  private renderBgmPlayer(): HTMLElement {
+    return el("div", { class: "bgm-player", title: "드래곤볼 BGM" }, [
+      el("i", { class: `fa-solid fa-compact-disc bgm-disc${this.bgmPlaying ? "" : " paused"}` }),
+      el("span", { class: "bgm-label" }, ["BGM"]),
+      el("button", {
+        class: "bgm-btn",
+        title: this.bgmPlaying ? "일시정지" : "재생",
+        onclick: () => this.toggleBgmPlay(),
+      }, [el("i", { class: `fa-solid ${this.bgmPlaying ? "fa-pause" : "fa-play"}` })]),
+      el("button", {
+        class: "bgm-btn",
+        title: this.bgmMuted ? "소리 켜기" : "음소거",
+        onclick: () => this.toggleBgmMute(),
+      }, [el("i", { class: `fa-solid ${this.bgmMuted ? "fa-volume-xmark" : "fa-volume-high"}` })]),
+    ]);
   }
 
   newGame(seed = (Math.random() * 1e9) | 0): void {
@@ -885,6 +910,7 @@ export class Controller {
         turnText,
       ]),
       logEl,
+      this.renderBgmPlayer(),
       rankBtn,
       lanBtn,
     ];

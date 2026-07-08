@@ -258,6 +258,16 @@ export function makeMiniCard(card: CardDef, opts: MiniCardOpts = {}): HTMLElemen
     }
     if (evo.childElementCount > 1) children.push(evo);
   }
+  // 다음 진화 카드 미리보기(덱처럼) — 이 카드가 무엇으로 변신하는지.
+  if (opts.evoCost && card.evolvesTo) {
+    const nextTier: Tier = card.tier === 1 ? 2 : 3;
+    const nextName = ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo;
+    children.push(el("div", { class: "mini-next", title: `다음 변신: ${nextName}` }, [
+      el("i", { class: "fa-solid fa-arrow-down mini-next-arr" }),
+      el("img", { class: "mini-next-img", src: cardImg(nextTier, card.evolvesTo), alt: nextName }),
+      el("span", { class: "mini-next-name" }, [nextName]),
+    ]));
+  }
 
   const node = el("div", { class: cls.join(" "), dataset: { id: card.id } }, children);
 
