@@ -370,11 +370,15 @@ button, input, select, textarea {
   transform: translateY(-4px);
   box-shadow: 0 9px 24px rgba(0,0,0,0.5);
 }
+/* 살 수 있는 카드: 차분한 상시 초록 링(깜빡임 없음) */
 .poke-card.affordable {
-  box-shadow: 0 0 0 3px #22c55e, 0 5px 18px rgba(34,197,94,0.45);
-  animation: glow-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 0 3px #22c55e, 0 5px 16px rgba(34,197,94,0.4);
 }
-.poke-card.dim { opacity: 0.85; }  /* 내 차례에 살 수 없는 카드: 은은하게만(초록 강조로 구분) */
+/* 살 수 없는 카드: 흐림 + 살짝 탈색으로 뒤로 물러나게(한눈에 구분) */
+.poke-card.dim {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+}
 
 /* 보너스 색 → 카드 액센트(테두리/헤더/이름 배지) */
 .poke-card.card-bg-red    { --pc-accent: var(--ball-red-rgb); }
