@@ -8,7 +8,7 @@ import { legalEvolutions, legalMainActions, type MainAction, type Evolution } fr
 import { applyMainAction, applyEvolution, finishTurn, winnerId, rankPlayers } from "@/game/engine";
 import { chooseStrongTurn } from "@/strategy/policy";
 import { serialize, deserialize, type Snapshot } from "@/game/snapshot";
-import { LanClient, type RosterEntry, type RoomInfo } from "@/net/lan";
+import { LanClient, type RosterEntry, type RoomInfo, type LanHandlers } from "@/net/lan";
 import type { SimResponse } from "@/simulator/worker";
 import { Rng } from "@/game/rng";
 import { COLOR_DISPLAY, MAX_RESERVED, MAX_BALLS_IN_HAND } from "@/data/balls";
@@ -66,6 +66,9 @@ export class Controller {
   private lanName = ""; // 닉네임 입력값
   private lanNewRoomName = ""; // 새 방 이름 입력값
   private roomList: RoomInfo[] = [];
+  private lanReconnect: { code: string; token: string; role: string; name: string } | null = null;
+  private lanResuming = false; // 새로고침 후 자동 재접속 중
+  private lanReconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingAction: MainAction | null = null; // 게스트: 변신 선택 중 보류된 메인 액션
   // ── BGM ──
   private bgmIframe: HTMLIFrameElement | null = null;
@@ -145,6 +148,10 @@ export class Controller {
   }
 
   newGame(seed = (Math.random() * 1e9) | 0): void {
+    this.netMode = "local";
+    this.mySeat = DEFAULT_SEAT;
+    this.humanSeats = new Set([DEFAULT_SEAT]);
+    this.clearLanSession();
     this.state = createGame(seed, 4, this.mySeat);
     this.assignPlayerNames(seed);
     this.phase = "human-action";
@@ -165,21 +172,94 @@ export class Controller {
     this.startTurn();
   }
 
-  /** 앱 시작: 저장된 로컬 게임이 있으면 이어서, 없으면 새 게임. */
+  /** 앱 시작: LAN 방에 있었으면 자동 재접속, 아니면 저장된 로컬 게임/새 게임. */
   start(): void {
+    const sess = this.readLanSession();
+    if (sess) {
+      // 오버레이/게임 렌더 배경용 최소 상태 보장(재접속 성공 시 교체됨).
+      this.state = createGame((Math.random() * 1e9) | 0, 4, 0);
+      this.reconnectLan(sess);
+      return;
+    }
     if (!this.tryRestore()) this.newGame();
   }
 
-  /** 로컬 진행 상태를 localStorage 에 저장(LAN 은 저장 안 함). */
-  private saveGame(): void {
-    if (this.netMode !== "local") return;
+  /** 새로고침 후 LAN 방 자동 재접속. 실패 시 로컬로 폴백. */
+  private reconnectLan(sess: { code: string; token: string; role: string; name: string }): void {
+    this.lanResuming = true;
+    this.lanReconnect = sess;
+    this.lanName = sess.name;
+    this.lanLobbyOpen = false;
+    this.lan = new LanClient();
+    this.lan.connect(this.lanUrl(), this.lanHandlers());
+    // 일정 시간 내 복귀 못하면 로컬로 폴백
+    this.lanReconnectTimer = setTimeout(() => {
+      if (this.lanResuming) { this.lanResuming = false; this.lan?.close(); this.lan = null; this.clearLanSession(); this.fallbackToLocal(""); }
+    }, 5000);
+  }
+
+  private fallbackToLocal(errMsg: string): void {
+    this.netMode = "local";
+    this.mySeat = DEFAULT_SEAT;
+    this.humanSeats = new Set([DEFAULT_SEAT]);
+    this.lanLobbyOpen = false;
+    this.lanJoined = false;
+    if (errMsg) this.setMsg({ kind: "info", text: errMsg });
+    if (!this.tryRestore()) this.newGame();
+  }
+
+  // ── 저장/복원 ──
+  private readLanSession(): { code: string; token: string; role: string; name: string } | null {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({
-        snap: serialize(this.state),
-        names: this.playerNames,
-        aiLog: this.aiLog,
-      }));
-    } catch { /* 저장 실패는 무시 */ }
+      const raw = localStorage.getItem(SAVE_KEY + "-lan");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  private saveLanSession(s: { code: string; token: string; role: string; name: string }): void {
+    try { localStorage.setItem(SAVE_KEY + "-lan", JSON.stringify(s)); } catch { /* noop */ }
+  }
+  private clearLanSession(): void {
+    try { localStorage.removeItem(SAVE_KEY + "-lan"); localStorage.removeItem(SAVE_KEY + "-host"); } catch { /* noop */ }
+  }
+
+  /** 진행 상태 저장: 로컬은 이어하기용, 호스트는 재접속 복원용. */
+  private saveGame(): void {
+    try {
+      if (this.netMode === "local") {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({ snap: serialize(this.state), names: this.playerNames, aiLog: this.aiLog }));
+      } else if (this.netMode === "host") {
+        localStorage.setItem(SAVE_KEY + "-host", JSON.stringify({
+          snap: serialize(this.state), names: this.playerNames, aiLog: this.aiLog, humanSeats: [...this.humanSeats],
+        }));
+      }
+    } catch { /* 저장 실패 무시 */ }
+  }
+
+  /** 호스트 재접속 시 저장된 LAN 게임 복원. 성공 시 true. */
+  private restoreHostGame(): boolean {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY + "-host");
+      if (!raw) return false;
+      const d = JSON.parse(raw) as { snap: Snapshot; names?: string[]; aiLog?: string[]; humanSeats?: number[] };
+      const state = deserialize(d.snap);
+      if (!state?.players?.length) return false;
+      this.state = state;
+      this.playerNames = d.names ?? this.playerNames;
+      this.aiLog = d.aiLog ?? [];
+      this.humanSeats = new Set(d.humanSeats ?? [0]);
+      this.mySeat = 0;
+      this.netMode = "host";
+      this.endOverlayOpen = true;
+      this.winRates = new Array(state.numPlayers).fill(1 / state.numPlayers);
+      this.winRatesStale = true;
+      this.activeWinRateRequestId = ++this.winRateRequestSeq;
+      this.probSeed = (Math.random() * 1e9) | 0;
+      this.lan?.setStatus("playing");
+      this.requestWinProb();
+      this.render();
+      this.startTurn();
+      return true;
+    } catch { return false; }
   }
 
   /** 저장된 로컬 게임 복원. 성공 시 true. */
@@ -234,41 +314,56 @@ export class Controller {
 
   // ── LAN 대전 (다중 방 + 방목록 + 관전) ───────────────────────────
   /** LAN 열기: 서버 접속 + 방 목록 구독. */
-  private openLanLobby(): void {
-    this.lanLobbyOpen = true;
-    this.lanView = "list";
-    if (this.lan) { this.render(); return; }
+  private lanUrl(): string {
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    const url = `${proto}://${location.host}`;
-    this.lanError = "";
-    this.lanJoined = false;
-    this.lan = new LanClient();
-    this.lan.connect(url, {
-      onRooms: (rooms) => { this.roomList = rooms; if (this.lanView === "list") this.render(); },
-      onJoined: (_code, seat, isHost, roster) => {
+    return `${proto}://${location.host}`;
+  }
+
+  private lanHandlers(): LanHandlers {
+    return {
+      onRooms: (rooms) => {
+        this.roomList = rooms;
+        if (this.lanReconnect) { const s = this.lanReconnect; this.lanReconnect = null; this.fireReconnect(s); return; }
+        if (this.lanView === "list" && this.lanLobbyOpen) this.render();
+      },
+      onJoined: (code, seat, isHost, roster, token) => {
+        if (this.lanReconnectTimer) { clearTimeout(this.lanReconnectTimer); this.lanReconnectTimer = null; }
         this.mySeat = seat;
         this.netMode = isHost ? "host" : "guest";
         this.lanRoster = roster;
         this.lanJoined = true;
+        this.saveLanSession({ code, token, role: isHost ? "host" : "guest", name: this.lanName || "플레이어" });
+        if (this.lanResuming) {
+          this.lanResuming = false;
+          this.lanLobbyOpen = false;
+          if (isHost && this.restoreHostGame()) { this.broadcastState(); return; }
+          // 게스트/게임없음: 호스트 상태(resend)를 기다린다
+          this.lanView = "lobby"; this.lanLobbyOpen = true; this.render(); return;
+        }
         this.lanView = "lobby";
         this.render();
       },
-      onSpectating: (_code, roster) => {
+      onSpectating: (code, roster) => {
+        if (this.lanReconnectTimer) { clearTimeout(this.lanReconnectTimer); this.lanReconnectTimer = null; }
+        this.lanResuming = false;
         this.mySeat = -1;
         this.netMode = "spectator";
         this.lanRoster = roster;
         this.lanJoined = false;
-        this.lanLobbyOpen = false; // 바로 관전 화면
+        this.lanLobbyOpen = false;
+        this.saveLanSession({ code, token: "", role: "spectator", name: "" });
         this.setMsg({ kind: "info", text: "관전 중 — 호스트의 게임 상태를 기다립니다…" });
         this.render();
       },
       onRoster: (roster) => { this.lanRoster = roster; this.onLanRosterChange(); },
       onRelay: (from, payload) => this.handleRelay(from, payload),
       onResend: () => { if (this.netMode === "host") this.broadcastState(); },
+      onReconnectFail: () => { this.clearLanSession(); this.fallbackToLocal("이전 방을 찾지 못했습니다."); },
       onError: (msg) => { this.lanError = msg; this.render(); },
       onClose: (reason) => {
-        this.lanError = reason;
         this.lan = null;
+        if (this.lanResuming) { this.lanResuming = false; this.fallbackToLocal(""); return; }
+        this.lanError = reason;
         this.netMode = "local";
         this.mySeat = DEFAULT_SEAT;
         this.humanSeats = new Set([DEFAULT_SEAT]);
@@ -277,7 +372,23 @@ export class Controller {
         this.lanView = "list";
         this.render();
       },
-    });
+    };
+  }
+
+  private fireReconnect(s: { code: string; token: string; role: string }): void {
+    if (!this.lan) return;
+    if (s.role === "spectator") this.lan.spectate(s.code);
+    else this.lan.reconnect(s.code, s.token);
+  }
+
+  private openLanLobby(): void {
+    this.lanLobbyOpen = true;
+    this.lanView = "list";
+    if (this.lan) { this.render(); return; }
+    this.lanError = "";
+    this.lanJoined = false;
+    this.lan = new LanClient();
+    this.lan.connect(this.lanUrl(), this.lanHandlers());
     this.render();
   }
 
@@ -333,8 +444,10 @@ export class Controller {
   }
 
   private leaveLan(): void {
+    this.lan?.leave();
     this.lan?.close();
     this.lan = null;
+    this.clearLanSession();
     this.netMode = "local";
     this.mySeat = DEFAULT_SEAT;
     this.humanSeats = new Set([DEFAULT_SEAT]);
@@ -367,6 +480,7 @@ export class Controller {
     this.probSeed = (Math.random() * 1e9) | 0;
     this.lan?.setStatus("playing");
     this.broadcastState();
+    this.saveGame();
     this.render();
     this.startTurn();
   }

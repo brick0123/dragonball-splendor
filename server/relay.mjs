@@ -10,11 +10,13 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { networkInterfaces } from "node:os";
+import { randomUUID } from "node:crypto";
 import { WebSocketServer } from "ws";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 5178);
 const MAX_SEATS = 4;
+const GRACE_MS = 30000; // 새로고침/일시 끊김 시 좌석을 유지하는 유예 시간
 const HTML_PATH = resolve(__dirname, "../dist/dragonball-splendor.html");
 
 if (!existsSync(HTML_PATH)) {
@@ -36,9 +38,9 @@ const rooms = new Map();
 const lobbySubs = new Set(); // 방 목록 구독 중인 소켓
 let codeSeq = 0;
 
-const send = (ws, obj) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); };
+const send = (ws, obj) => { if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); };
 const hostOf = (r) => r.members.get(0)?.ws;
-const rosterOf = (r) => [...r.members.entries()].map(([seat, m]) => ({ seat, name: m.name })).sort((a, b) => a.seat - b.seat);
+const rosterOf = (r) => [...r.members.entries()].map(([seat, m]) => ({ seat, name: m.name, on: !!m.ws })).sort((a, b) => a.seat - b.seat);
 function firstFreeSeat(r) { for (let s = 0; s < MAX_SEATS; s++) if (!r.members.has(s)) return s; return -1; }
 const roomInfo = (r) => ({ code: r.code, name: r.name, players: r.members.size, max: MAX_SEATS, status: r.status, spectators: r.spectators.size });
 const roomList = () => [...rooms.values()].map(roomInfo);
@@ -60,11 +62,12 @@ wss.on("connection", (ws) => {
       case "create": {
         const code = `r${++codeSeq}`;
         const nick = String(msg.name ?? "P1").slice(0, 20);
-        const r = { code, name: String(msg.roomName ?? `${nick}의 방`).slice(0, 24), members: new Map(), spectators: new Set(), status: "waiting" };
-        r.members.set(0, { ws, name: nick });
+        const token = randomUUID();
+        const r = { code, name: String(msg.roomName ?? `${nick}의 방`).slice(0, 24), members: new Map(), spectators: new Set(), status: "waiting", grace: new Map() };
+        r.members.set(0, { ws, name: nick, token });
         rooms.set(code, r);
         ws.meta = { code, seat: 0, role: "host" };
-        send(ws, { t: "joined", code, seat: 0, isHost: true, roster: rosterOf(r) });
+        send(ws, { t: "joined", code, seat: 0, isHost: true, roster: rosterOf(r), token });
         pushLobby();
         console.log(`[lan] create ${code} "${r.name}" host=${nick}`);
         return;
@@ -78,12 +81,32 @@ wss.on("connection", (ws) => {
         const seat = firstFreeSeat(r);
         if (seat < 0) { send(ws, { t: "full" }); return; }
         const nick = String(msg.name ?? `P${seat + 1}`).slice(0, 20);
-        r.members.set(seat, { ws, name: nick });
+        const token = randomUUID();
+        r.members.set(seat, { ws, name: nick, token });
         ws.meta = { code: r.code, seat, role: "player" };
-        send(ws, { t: "joined", code: r.code, seat, isHost: false, roster: rosterOf(r) });
+        send(ws, { t: "joined", code: r.code, seat, isHost: false, roster: rosterOf(r), token });
         broadcastRoster(r);
         const h = hostOf(r); if (h) send(h, { t: "resend" });
         pushLobby();
+        return;
+      }
+
+      case "reconnect": {
+        const r = rooms.get(String(msg.code));
+        if (!r) { send(ws, { t: "reconnect-fail" }); return; }
+        let found = -1;
+        for (const [seat, m] of r.members) if (m.token && m.token === msg.token) { found = seat; break; }
+        if (found < 0) { send(ws, { t: "reconnect-fail" }); return; }
+        const t = r.grace.get(found); if (t) { clearTimeout(t); r.grace.delete(found); }
+        const m = r.members.get(found);
+        m.ws = ws;
+        ws.meta = { code: r.code, seat: found, role: found === 0 ? "host" : "player" };
+        send(ws, { t: "joined", code: r.code, seat: found, isHost: found === 0, roster: rosterOf(r), token: m.token });
+        broadcastRoster(r);
+        // 재접속자가 게스트면 호스트가 상태 재전송. 호스트면 스스로 재브로드캐스트함.
+        if (found !== 0) { const h = hostOf(r); if (h) send(h, { t: "resend" }); }
+        pushLobby();
+        console.log(`[lan] reconnect ${r.code} seat=${found}`);
         return;
       }
 
@@ -108,11 +131,16 @@ wss.on("connection", (ws) => {
         const r = rooms.get(ws.meta.code);
         if (!r) return;
         if (ws.meta.role === "host") {
-          for (const [s, m] of r.members) if (s !== 0) send(m.ws, { t: "relay", fromSeat: 0, payload: msg.payload });
+          for (const [s, m] of r.members) if (s !== 0 && m.ws) send(m.ws, { t: "relay", fromSeat: 0, payload: msg.payload });
           for (const w of r.spectators) send(w, { t: "relay", fromSeat: 0, payload: msg.payload });
         } else if (ws.meta.role === "player") {
           const h = hostOf(r); if (h) send(h, { t: "relay", fromSeat: ws.meta.seat, payload: msg.payload });
         }
+        return;
+      }
+
+      case "leave": { // 방 완전히 나가기(유예 없이 즉시 제거)
+        removeFromRoom(ws, true);
         return;
       }
 
@@ -124,24 +152,43 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     lobbySubs.delete(ws);
-    const { code, seat, role } = ws.meta;
-    if (code == null) return;
-    const r = rooms.get(code);
-    if (!r) return;
-    if (role === "spectator") { r.spectators.delete(ws); pushLobby(); return; }
+    removeFromRoom(ws, false);
+  });
+});
+
+/** 방에서 소켓 제거. immediate=false 면 좌석을 유예시간 동안 유지(재접속 대기). */
+function removeFromRoom(ws, immediate) {
+  const { code, seat, role } = ws.meta;
+  if (code == null) return;
+  const r = rooms.get(code);
+  if (!r) return;
+  if (role === "spectator") { r.spectators.delete(ws); ws.meta = { code: null, seat: -1, role: "none" }; pushLobby(); return; }
+  const m = r.members.get(seat);
+  if (!m) return;
+
+  const finalize = () => {
+    r.grace.delete(seat);
     r.members.delete(seat);
     if (seat === 0) {
-      for (const m of r.members.values()) send(m.ws, { t: "host-left" });
+      for (const mm of r.members.values()) send(mm.ws, { t: "host-left" });
       for (const w of r.spectators) send(w, { t: "host-left" });
       rooms.delete(code);
-      console.log(`[lan] close room ${code} (host left)`);
+      console.log(`[lan] close room ${code} (host gone)`);
     } else {
       broadcastRoster(r);
       const h = hostOf(r); if (h) send(h, { t: "resend" });
     }
     pushLobby();
-  });
-});
+  };
+
+  if (immediate) { ws.meta = { code: null, seat: -1, role: "none" }; finalize(); return; }
+  // 유예: 연결만 끊고 좌석 유지 → 재접속 대기
+  m.ws = null;
+  broadcastRoster(r);
+  pushLobby();
+  const existing = r.grace.get(seat); if (existing) clearTimeout(existing);
+  r.grace.set(seat, setTimeout(finalize, GRACE_MS));
+}
 
 server.listen(PORT, "0.0.0.0", () => {
   const ips = [];
