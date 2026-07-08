@@ -1178,6 +1178,44 @@ button, input, select, textarea {
   z-index: 50;
 }
 
+/* ── LAN 대기실 좌석 슬롯 ── */
+.lan-seats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+.lan-seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(59,130,246,0.14);
+  border: 1px solid rgba(59,130,246,0.4);
+}
+.lan-seat--empty {
+  background: rgba(255,255,255,0.04);
+  border: 1px dashed rgba(255,255,255,0.18);
+}
+.lan-seat--empty .lan-seat-name,
+.lan-seat--empty .lan-seat-ic { opacity: 0.5; }
+.lan-seat-no {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(0,0,0,0.35);
+  border-radius: 6px;
+}
+.lan-seat-ic { width: 16px; text-align: center; }
+.lan-seat-name { font-weight: 700; margin-right: auto; }
+
 /* ── BGM 유튜브 플레이어(우측 하단, 자동 재생) ── */
 .yt-player {
   position: fixed;

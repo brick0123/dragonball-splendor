@@ -717,15 +717,28 @@ export class Controller {
         "LAN 대전 대기실",
       ]),
     ];
-    // 실시간 대기자 목록
-    children.push(el("div", { class: "text-xs opacity-60 mt-1" }, [`대기 중 (${this.lanRoster.length}/4)`]));
-    const rows = this.lanRoster.map((r) => el("li", { class: "flex items-center gap-2 py-1" }, [
-      el("i", { class: "fa-solid fa-user text-xs opacity-60" }),
-      `좌석 ${r.seat + 1}: ${r.name}`,
-      r.seat === 0 ? el("span", { class: "badge badge-xs badge-warning" }, ["호스트"]) : "",
-      this.lanJoined && r.seat === this.mySeat ? el("span", { class: "badge badge-xs badge-info" }, ["나"]) : "",
-    ]));
-    children.push(el("ul", { class: "my-2" }, rows.length ? rows : [el("li", { class: "opacity-60" }, ["아직 아무도 없습니다 — 첫 입장자가 호스트가 됩니다."])]));
+    // 실시간 대기자 목록 — 4개 좌석 슬롯을 카드로 명확히 구분
+    children.push(el("div", { class: "text-xs opacity-60 mt-1 mb-1" }, [`대기 중 (${this.lanRoster.length}/4)`]));
+    const seatEls: HTMLElement[] = [];
+    for (let s = 0; s < 4; s++) {
+      const entry = this.lanRoster.find((r) => r.seat === s);
+      if (entry) {
+        seatEls.push(el("div", { class: "lan-seat" }, [
+          el("span", { class: "lan-seat-no" }, [String(s + 1)]),
+          el("i", { class: "fa-solid fa-user lan-seat-ic text-info" }),
+          el("span", { class: "lan-seat-name" }, [entry.name]),
+          s === 0 ? el("span", { class: "badge badge-xs badge-warning" }, ["호스트"]) : "",
+          this.lanJoined && s === this.mySeat ? el("span", { class: "badge badge-xs badge-info" }, ["나"]) : "",
+        ]));
+      } else {
+        seatEls.push(el("div", { class: "lan-seat lan-seat--empty" }, [
+          el("span", { class: "lan-seat-no" }, [String(s + 1)]),
+          el("i", { class: "fa-solid fa-robot lan-seat-ic" }),
+          el("span", { class: "lan-seat-name" }, ["빈 자리 · AI"]),
+        ]));
+      }
+    }
+    children.push(el("div", { class: "lan-seats" }, seatEls));
     if (this.lanError) children.push(el("div", { class: "alert alert-error py-2 px-3 text-sm my-2" }, [this.lanError]));
 
     if (!this.lanJoined) {
@@ -1162,15 +1175,21 @@ export class Controller {
 
     const panel = el("div", { class: cls.join(" ") });
 
-    // Name + points
+    // Name + points. LAN 사람 상대는 사람(🧑) 표시로 AI(🤖)와 구분.
+    const isHumanOpp = this.humanSeats.has(index);
     panel.append(el("div", { class: "flex items-center justify-between" }, [
       el("div", { class: "flex items-center gap-2" }, [
         el("div", { class: "avatar placeholder" }, [
-          el("div", { class: "bg-neutral text-neutral-content w-6 rounded-full" }, [
-            el("i", { class: "fa-solid fa-robot text-xs" }),
+          el("div", {
+            class: `${isHumanOpp ? "bg-info text-info-content" : "bg-neutral text-neutral-content"} w-6 rounded-full`,
+          }, [
+            el("i", { class: `fa-solid ${isHumanOpp ? "fa-user" : "fa-robot"} text-xs` }),
           ]),
         ]),
         el("span", { class: "ai-name" }, [this.playerName(index)]),
+        isHumanOpp
+          ? el("span", { class: "badge badge-xs badge-info" }, ["🧑 사람"])
+          : el("span", { class: "badge badge-xs badge-ghost" }, ["🤖 AI"]),
       ]),
       el("div", { class: "flex items-center gap-2" }, [
         el("span", { class: "ai-pts" }, [`${playerPoints(p)}점`]),
