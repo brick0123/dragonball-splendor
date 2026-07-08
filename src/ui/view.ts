@@ -101,9 +101,12 @@ export function colorCountBadge(c: Color, n: number, title: string): HTMLElement
  *  희귀/전설 카드는 드래곤볼(마스터) 1개가 추가로 필요하므로 보라색 드래곤볼 칩을 표시한다. */
 export function costPips(card: CardDef): HTMLElement {
   const wrap = el("div", { class: "pc-cost" });
-  for (const c of COLORS) {
-    const n = card.cost[c];
-    if (!n) continue;
+  // 필요 개수 내림차순(많은 색 먼저). 동수는 컬러 기본 순서 유지.
+  const entries = COLORS
+    .map((c) => ({ c, n: card.cost[c] ?? 0 }))
+    .filter((e) => e.n > 0)
+    .sort((a, b) => b.n - a.n);
+  for (const { c, n } of entries) {
     wrap.append(el("div", { class: `pc-chip ${COLOR_CLASS[c]}` }, [
       el("span", { class: "pc-chip-n" }, [String(n)]),
       ballIcon(c, 15),

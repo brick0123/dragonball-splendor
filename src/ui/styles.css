@@ -1178,6 +1178,47 @@ button, input, select, textarea {
   z-index: 50;
 }
 
+/* ── BGM 유튜브 플레이어(우측 하단, 자동 재생) ── */
+.yt-player {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  width: min(300px, calc(100vw - 24px));
+  z-index: 45;
+  background: rgba(0,0,0,0.88);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+}
+.yt-player .yt-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255,255,255,0.07);
+}
+.yt-player .yt-toggle {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 13px;
+}
+.yt-player .yt-toggle:hover { color: #fff; }
+.yt-player iframe {
+  display: block;
+  width: 100%;
+  height: 169px; /* 16:9 @ 300px */
+  border: 0;
+  transition: height 0.2s ease;
+}
+.yt-player.min iframe { height: 0; }
+
 /* ── Tooltip ──────────────────────────────────────── */
 .card-tooltip {
   position: fixed;

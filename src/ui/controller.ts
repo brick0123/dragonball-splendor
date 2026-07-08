@@ -60,6 +60,51 @@ export class Controller {
       this.winRatesStale = false;
       this.renderProbs();
     };
+    this.mountMusicPlayer();
+  }
+
+  /** 우측 하단 BGM 유튜브 플레이어(자동 재생). root 재렌더와 무관하게 body 에 1회만 마운트. */
+  private mountMusicPlayer(): void {
+    if (document.querySelector(".yt-player")) return;
+    const VIDEO_ID = "uC8sc0cQa9M";
+    const iframe = document.createElement("iframe");
+    // 브라우저 자동재생 정책상 소리 켠 자동재생은 차단되므로, 음소거로 자동재생 후 첫 입력 때 소리를 켠다.
+    iframe.src = `https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${VIDEO_ID}&controls=1&rel=0&playsinline=1&enablejsapi=1`;
+    iframe.title = "BGM";
+    iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+    iframe.setAttribute("frameborder", "0");
+    iframe.allowFullscreen = true;
+
+    const toggle = el("button", { class: "yt-toggle", title: "접기/펼치기" }, [
+      el("i", { class: "fa-solid fa-chevron-down" }),
+    ]);
+    const bar = el("div", { class: "yt-bar" }, [
+      el("span", { class: "yt-title" }, [
+        el("i", { class: "fa-solid fa-music mr-1" }),
+        "BGM",
+      ]),
+      toggle,
+    ]);
+    const wrap = el("div", { class: "yt-player" }, [bar, iframe]);
+    toggle.addEventListener("click", () => {
+      wrap.classList.toggle("min");
+      const icon = toggle.querySelector("i");
+      if (icon) icon.className = wrap.classList.contains("min")
+        ? "fa-solid fa-chevron-up"
+        : "fa-solid fa-chevron-down";
+    });
+    document.body.append(wrap);
+
+    // 첫 사용자 입력(클릭/키) 시 음소거 해제 + 최대 볼륨 재생 (자동재생 정책 우회)
+    const enableSound = () => {
+      const cw = iframe.contentWindow;
+      if (!cw) return;
+      for (const [func, args] of [["unMute", []], ["setVolume", [100]], ["playVideo", []]] as const) {
+        cw.postMessage(JSON.stringify({ event: "command", func, args }), "*");
+      }
+    };
+    window.addEventListener("pointerdown", enableSound, { once: true });
+    window.addEventListener("keydown", enableSound, { once: true });
   }
 
   newGame(seed = (Math.random() * 1e9) | 0): void {
