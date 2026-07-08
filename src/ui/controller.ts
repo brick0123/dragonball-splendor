@@ -16,7 +16,7 @@ import { FUSIONS, FUSION_BY_ROMANIZED } from "@/data/cards";
 import { fusionImg, cardImg } from "./assets";
 import SimWorker from "@/simulator/worker?worker&inline";
 import {
-  el, ballIcon, ballChip, makeCardEl, makeMiniCard, colorCountBadge,
+  el, ballIcon, makeCardEl, makeMiniCard,
   showTooltip, hideTooltip, aiLogEl,
   showEvolutionToast, showCaptureToast, showEvolveAvailableToast,
 } from "./view";
@@ -658,7 +658,38 @@ export class Controller {
   }
 
   private colorTotalTitle(p: PlayerState, c: Color): string {
-    return `${COLOR_DISPLAY[c]} 총점수 ${this.colorTotal(p, c)} (보너스 ${p.bonus[c]} + 보유 구슬 ${p.balls[c]})`;
+    return `${COLOR_DISPLAY[c]} — 공 ${p.balls[c]}개, 카드보너스 ${p.bonus[c]} → 합계 ${this.colorTotal(p, c)}`;
+  }
+
+  /** 자원 그리드(옵션 A): 색상별로 위=구슬(공) 아이콘+보유수, 아래=카드보너스+공 합계. */
+  private renderResourceGrid(p: PlayerState, compact = false): HTMLElement {
+    const wrap = el("div", { class: compact ? "res-grid res-grid--sm" : "res-grid" });
+    const orbSize = compact ? 22 : 30;
+    for (const c of COLORS) {
+      wrap.append(el("div", { class: "res-cell", title: this.colorTotalTitle(p, c) }, [
+        el("div", { class: "res-orb" }, [
+          ballIcon(c, orbSize),
+          el("span", { class: "res-ball-cnt" }, [String(p.balls[c])]),
+        ]),
+        el("div", { class: `res-total res-c-${c}` }, [String(this.colorTotal(p, c))]),
+      ]));
+    }
+    if (p.balls.gold > 0) {
+      wrap.append(el("div", { class: "res-cell", title: `궁극의 드래곤볼 ${p.balls.gold}개 (와일드)` }, [
+        el("div", { class: "res-orb" }, [
+          ballIcon("gold", orbSize),
+          el("span", { class: "res-ball-cnt" }, [String(p.balls.gold)]),
+        ]),
+        el("div", { class: "res-total res-c-gold" }, ["✦"]),
+      ]));
+    }
+    return wrap;
+  }
+
+  /** 자원 섹션 헤더(총 보유 공 개수 요약 포함). */
+  private resourceSummary(p: PlayerState): string {
+    const colorBalls = COLORS.reduce((n, c) => n + p.balls[c], 0);
+    return p.balls.gold > 0 ? `보유 공 ${colorBalls} · 궁극 ${p.balls.gold}` : `보유 공 ${colorBalls}`;
   }
 
   private needsMasterBallSpendConfirm(action: MainAction): boolean {
@@ -1104,36 +1135,14 @@ export class Controller {
       ]),
     ]));
 
-    // Balls
-    const ballsSection = el("div", { class: "panel-section" });
-    ballsSection.append(el("div", { class: "text-[9px] opacity-50 mb-1" }, [
-      el("i", { class: "fa-solid fa-coins mr-1" }),
-      "구슬",
+    // 자원(옵션 A): 위=구슬(공) 보유수, 아래=카드보너스+공 합계
+    const resSection = el("div", { class: "panel-section" });
+    resSection.append(el("div", { class: "res-head text-[9px] opacity-60 mb-1" }, [
+      el("span", {}, [el("i", { class: "fa-solid fa-coins mr-1" }), "자원 (위: 공 / 아래: 카드+공 합)"]),
+      el("span", { class: "res-sum" }, [this.resourceSummary(p)]),
     ]));
-    const ballsRow = el("div", { class: "flex flex-wrap gap-1" });
-    for (const c of COLORS) {
-      if (p.balls[c] > 0) ballsRow.append(ballChip(c, p.balls[c]));
-    }
-    if (p.balls.gold > 0) ballsRow.append(ballChip("gold", p.balls.gold));
-    if (handBallCount(p) === 0) ballsRow.append(el("span", { class: "text-xs opacity-30" }, ["없음"]));
-    ballsSection.append(ballsRow);
-    panel.append(ballsSection);
-
-    // Color totals: bonus + held colored balls
-    const totalSection = el("div", { class: "panel-section" });
-    totalSection.append(el("div", { class: "text-[9px] opacity-50 mb-1" }, [
-      el("i", { class: "fa-solid fa-shield-halved mr-1" }),
-      "총점수",
-    ]));
-    const totalRow = el("div", { class: "flex flex-wrap gap-1" });
-    for (const c of COLORS) {
-      const total = this.colorTotal(p, c);
-      if (total > 0) totalRow.append(colorCountBadge(c, total, this.colorTotalTitle(p, c)));
-    }
-    const hasTotal = COLORS.some((c) => this.colorTotal(p, c) > 0);
-    if (!hasTotal) totalRow.append(el("span", { class: "text-xs opacity-30" }, ["없음"]));
-    totalSection.append(totalRow);
-    panel.append(totalSection);
+    resSection.append(this.renderResourceGrid(p));
+    panel.append(resSection);
 
     // Scored cards grouped by bonus color
     const scoredSection = el("div", { class: "panel-section" });
@@ -1207,22 +1216,8 @@ export class Controller {
       ]),
     ]));
 
-    // Balls + color totals compact
-    const row = el("div", { class: "ai-row" });
-    for (const c of COLORS) {
-      if (p.balls[c] > 0) row.append(ballChip(c, p.balls[c]));
-    }
-    if (p.balls.gold > 0) row.append(ballChip("gold", p.balls.gold));
-    panel.append(row);
-
-    const totalRow = el("div", { class: "ai-row" });
-    const hasTotal = COLORS.some((c) => this.colorTotal(p, c) > 0);
-    if (hasTotal) totalRow.append(el("span", { class: "ai-row-label" }, ["총점수"]));
-    for (const c of COLORS) {
-      const total = this.colorTotal(p, c);
-      if (total > 0) totalRow.append(colorCountBadge(c, total, this.colorTotalTitle(p, c)));
-    }
-    if (hasTotal) panel.append(totalRow);
+    // 자원(컴팩트): 위=공, 아래=카드+공 합계
+    panel.append(this.renderResourceGrid(p, true));
 
     // Scored cards grouped by bonus color
     if (p.scored.length > 0) {
