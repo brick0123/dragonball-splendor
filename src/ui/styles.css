@@ -1244,6 +1244,7 @@ button, input, select, textarea {
   border-color: #22c55e;
   box-shadow: 0 0 8px rgba(34,197,94,0.15);
 }
+.ai-panel.left-seat { opacity: 0.5; filter: grayscale(0.5); }
 .ai-panel .ai-name {
   font-size: 15px;
   font-weight: 700;
