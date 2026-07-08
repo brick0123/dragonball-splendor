@@ -2169,7 +2169,7 @@ button, input, select, textarea {
     min-width: 0;
     padding: 2px 0 8px;
   }
-  .tier-label {
+  .tier-row .tier-label {
     writing-mode: horizontal-tb;
     text-orientation: initial;
     letter-spacing: 0;
@@ -2182,6 +2182,8 @@ button, input, select, textarea {
     white-space: nowrap;
     color: rgba(255,255,255,0.7);
   }
+  /* 좌측 칸: 라벨 위 / 더미 아래로 확실히 분리 */
+  .tier-left { gap: 6px; flex: 0 0 auto; }
   .tier-cards {
     gap: 8px;
     overflow-x: auto;
