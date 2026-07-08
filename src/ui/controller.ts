@@ -18,7 +18,7 @@ import { sfxPick, sfxTake, sfxBuy, sfxReserve, sfxEvolve, sfxWin, primeSfx } fro
 import SimWorker from "@/simulator/worker?worker&inline";
 import {
   el, ballIcon, makeCardEl,
-  showTooltip, hideTooltip, aiLogEl,
+  showTooltip, hideTooltip, aiLogEl, colorizeLog,
   showEvolutionToast, showCaptureToast, showEvolveAvailableToast,
 } from "./view";
 
@@ -1560,7 +1560,7 @@ export class Controller {
     const logEl = aiLogEl();
     // 최신 로그가 위로 오도록 역순 표시
     for (let i = this.aiLog.length - 1; i >= 0; i--) {
-      logEl.append(el("div", {}, [this.aiLog[i]!]));
+      logEl.append(el("div", {}, colorizeLog(this.aiLog[i]!)));
     }
 
     const newGameBtn = el("button", {
@@ -1628,9 +1628,9 @@ export class Controller {
   private renderBoard(): HTMLElement {
     const board = el("div", { class: "flex flex-col gap-2 flex-1" });
 
-    // Tier rows
+    // Tier rows (좁은 칸에서 깨지지 않도록 짧은 라벨)
     const rows: [string, Tier][] = [
-      ["1단계", 1], ["2단계", 2], ["3단계", 3],
+      ["Lv1", 1], ["Lv2", 2], ["Lv3", 3],
     ];
     for (const [label, tier] of rows) {
       const rowWrap = el("div", { class: "tier-row" });

@@ -369,6 +369,29 @@ export function aiLogEl(): HTMLElement {
   return el("div", { class: "ai-log" });
 }
 
+// 로그 문자열의 볼 색상 단어를 해당 색 스팬으로 감싸 반환.
+const LOG_COLOR_WORDS: readonly (readonly [string, string])[] = [
+  ["빨강", "red"], ["파랑", "blue"], ["검정", "black"],
+  ["분홍", "pink"], ["노랑", "yellow"], ["궁극", "gold"],
+];
+export function colorizeLog(text: string): (Node | string)[] {
+  const out: (Node | string)[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const hit = LOG_COLOR_WORDS.find(([w]) => text.startsWith(w, i));
+    if (hit) {
+      out.push(el("span", { class: `log-c-${hit[1]}` }, [hit[0]]));
+      i += hit[0].length;
+      continue;
+    }
+    let j = i + 1;
+    while (j < text.length && !LOG_COLOR_WORDS.some(([w]) => text.startsWith(w, j))) j++;
+    out.push(text.slice(i, j));
+    i = j;
+  }
+  return out;
+}
+
 // ── Toast / Modal helpers ────────────────────────────────────────────
 
 let toastTimeout: ReturnType<typeof setTimeout> | null = null;
