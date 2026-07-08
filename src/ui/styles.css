@@ -1178,43 +1178,141 @@ button, input, select, textarea {
   z-index: 50;
 }
 
-/* ── LAN 대기실 좌석 슬롯 ── */
-.lan-seats {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 4px 0 8px;
+/* ── LAN 대기실 (드래곤볼 톤) ── */
+.lan-lobby-card {
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: linear-gradient(180deg, #1b2436 0%, #121826 100%);
+  border: 1px solid rgba(255,203,5,0.28);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.3);
+  overflow: hidden;
 }
+.lan-lobby-head {
+  text-align: center;
+  padding: 20px 20px 14px;
+  background: radial-gradient(120% 100% at 50% 0%, rgba(255,203,5,0.18), transparent 70%);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.lan-lobby-title {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #ffcb05;
+  text-shadow: 0 2px 8px rgba(255,203,5,0.25);
+}
+.lan-lobby-sub { font-size: 12px; opacity: 0.55; margin-top: 3px; letter-spacing: 1px; }
+.lan-lobby-body { padding: 16px 18px 18px; }
+
+.lan-seats { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .lan-seat {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(59,130,246,0.14);
-  border: 1px solid rgba(59,130,246,0.4);
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  transition: all 0.15s;
 }
-.lan-seat--empty {
-  background: rgba(255,255,255,0.04);
-  border: 1px dashed rgba(255,255,255,0.18);
+.lan-seat.filled {
+  background: linear-gradient(90deg, rgba(255,203,5,0.14), rgba(255,203,5,0.05));
+  border: 1px solid rgba(255,203,5,0.38);
 }
-.lan-seat--empty .lan-seat-name,
-.lan-seat--empty .lan-seat-ic { opacity: 0.5; }
-.lan-seat-no {
+.lan-seat.empty {
+  background: rgba(255,255,255,0.025);
+  border: 1px dashed rgba(255,255,255,0.12);
+}
+.lan-avatar {
   flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-  color: #fff;
-  background: rgba(0,0,0,0.35);
-  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 900;
+  color: #1a1205;
+  background: linear-gradient(135deg, #ffe488, #f0a800);
+  box-shadow: 0 2px 6px rgba(240,168,0,0.4);
 }
-.lan-seat-ic { width: 16px; text-align: center; }
+.lan-avatar.empty {
+  color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.06);
+  box-shadow: none;
+}
 .lan-seat-name { font-weight: 700; margin-right: auto; }
+.lan-seat-name.muted { opacity: 0.4; font-weight: 600; }
+.lan-chip {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.lan-chip.host { background: #f0a800; color: #1a1205; }
+.lan-chip.me { background: #3b82f6; color: #fff; }
+.lan-chip.ai { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45); }
+
+.lan-err {
+  font-size: 12px;
+  color: #fca5a5;
+  background: rgba(220,38,38,0.12);
+  border: 1px solid rgba(220,38,38,0.3);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-bottom: 10px;
+}
+.lan-hint { font-size: 12px; opacity: 0.6; text-align: center; margin-bottom: 10px; }
+
+.lan-join-row { display: flex; gap: 8px; }
+.lan-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.lan-input::placeholder { color: rgba(255,255,255,0.35); }
+.lan-input:focus { border-color: #ffcb05; box-shadow: 0 0 0 3px rgba(255,203,5,0.2); }
+
+.lan-btn {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.lan-btn:active { transform: translateY(1px); }
+.lan-btn.primary {
+  color: #1a1205;
+  background: linear-gradient(135deg, #ffe488, #f0a800);
+  box-shadow: 0 3px 12px rgba(240,168,0,0.35);
+}
+.lan-btn.primary:hover { filter: brightness(1.06); }
+.lan-btn.primary.block { width: 100%; margin-bottom: 2px; }
+.lan-btn.ghost {
+  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+  font-size: 13px;
+  padding: 7px 14px;
+}
+.lan-btn.ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.lan-btn.ghost.danger:hover { color: #fca5a5; border-color: rgba(220,38,38,0.4); }
+.lan-actions { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+.loading-dots::after {
+  content: "";
+  animation: lan-dots 1.4s steps(4, end) infinite;
+}
+@keyframes lan-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 
 /* ── BGM 유튜브 플레이어(우측 하단, 자동 재생) ── */
 .yt-player {

@@ -711,40 +711,37 @@ export class Controller {
   }
 
   private renderLanOverlay(): HTMLElement {
-    const children: (HTMLElement | string)[] = [
-      el("h2", { class: "card-title text-xl justify-center text-info mb-2" }, [
-        el("i", { class: "fa-solid fa-network-wired mr-2" }),
-        "LAN 대전 대기실",
-      ]),
-    ];
-    // 실시간 대기자 목록 — 4개 좌석 슬롯을 카드로 명확히 구분
-    children.push(el("div", { class: "text-xs opacity-60 mt-1 mb-1" }, [`대기 중 (${this.lanRoster.length}/4)`]));
+    const body: (HTMLElement | string)[] = [];
+
+    // 4개 좌석 슬롯
     const seatEls: HTMLElement[] = [];
     for (let s = 0; s < 4; s++) {
       const entry = this.lanRoster.find((r) => r.seat === s);
       if (entry) {
-        seatEls.push(el("div", { class: "lan-seat" }, [
-          el("span", { class: "lan-seat-no" }, [String(s + 1)]),
-          el("i", { class: "fa-solid fa-user lan-seat-ic text-info" }),
+        const initial = entry.name.slice(0, 1).toUpperCase();
+        const chips: (HTMLElement | string)[] = [];
+        if (s === 0) chips.push(el("span", { class: "lan-chip host" }, ["호스트"]));
+        if (this.lanJoined && s === this.mySeat) chips.push(el("span", { class: "lan-chip me" }, ["나"]));
+        seatEls.push(el("div", { class: "lan-seat filled" }, [
+          el("div", { class: "lan-avatar" }, [initial]),
           el("span", { class: "lan-seat-name" }, [entry.name]),
-          s === 0 ? el("span", { class: "badge badge-xs badge-warning" }, ["호스트"]) : "",
-          this.lanJoined && s === this.mySeat ? el("span", { class: "badge badge-xs badge-info" }, ["나"]) : "",
+          ...chips,
         ]));
       } else {
-        seatEls.push(el("div", { class: "lan-seat lan-seat--empty" }, [
-          el("span", { class: "lan-seat-no" }, [String(s + 1)]),
-          el("i", { class: "fa-solid fa-robot lan-seat-ic" }),
-          el("span", { class: "lan-seat-name" }, ["빈 자리 · AI"]),
+        seatEls.push(el("div", { class: "lan-seat empty" }, [
+          el("div", { class: "lan-avatar empty" }, [String(s + 1)]),
+          el("span", { class: "lan-seat-name muted" }, ["비어 있음"]),
+          el("span", { class: "lan-chip ai" }, ["AI"]),
         ]));
       }
     }
-    children.push(el("div", { class: "lan-seats" }, seatEls));
-    if (this.lanError) children.push(el("div", { class: "alert alert-error py-2 px-3 text-sm my-2" }, [this.lanError]));
+    body.push(el("div", { class: "lan-seats" }, seatEls));
+
+    if (this.lanError) body.push(el("div", { class: "lan-err" }, [this.lanError]));
 
     if (!this.lanJoined) {
-      // 착석 전: 닉네임 입력 후 입장
       const nameInput = el("input", {
-        class: "input input-bordered input-sm w-full",
+        class: "lan-input",
         type: "text",
         maxLength: 20,
         placeholder: "닉네임 입력",
@@ -752,30 +749,41 @@ export class Controller {
         oninput: (e: Event) => { this.lanName = (e.target as HTMLInputElement).value; },
         onkeydown: (e: KeyboardEvent) => { if (e.key === "Enter") this.joinLan(); },
       });
-      children.push(el("div", { class: "flex gap-2 mt-2" }, [
+      body.push(el("div", { class: "lan-join-row" }, [
         nameInput,
         el("button", {
-          class: "btn btn-info btn-sm",
+          class: "lan-btn primary",
           onclick: () => this.joinLan(),
         }, [el("i", { class: "fa-solid fa-right-to-bracket mr-1" }), "입장"]),
       ]));
-      if (this.lanRoster.length >= 4) children.push(el("div", { class: "text-xs text-error mt-1" }, ["방이 가득 찼습니다."]));
     } else if (this.netMode === "host") {
-      children.push(el("div", { class: "text-xs opacity-70 my-2" }, ["빈 자리는 AI로 채워집니다. 모두 입장한 뒤 시작하세요."]));
-      children.push(el("button", {
-        class: "btn btn-warning w-full",
+      body.push(el("div", { class: "lan-hint" }, ["빈 자리는 AI로 채워집니다"]));
+      body.push(el("button", {
+        class: "lan-btn primary block",
         onclick: () => this.startLanGame(),
       }, [el("i", { class: "fa-solid fa-play mr-1" }), "게임 시작"]));
     } else {
-      children.push(el("div", { class: "opacity-70 text-sm my-2" }, ["호스트가 게임을 시작하기를 기다리는 중…"]));
+      body.push(el("div", { class: "lan-hint" }, [
+        el("span", { class: "loading-dots" }, ["호스트가 시작하기를 기다리는 중"]),
+      ]));
     }
-    children.push(el("div", { class: "card-actions justify-center mt-3 gap-2" }, [
-      el("button", { class: "btn btn-ghost btn-sm", onclick: () => { this.lanLobbyOpen = false; this.render(); } }, ["숨기기"]),
-      el("button", { class: "btn btn-ghost btn-sm text-error", onclick: () => this.leaveLan() }, ["나가기"]),
+
+    body.push(el("div", { class: "lan-actions" }, [
+      el("button", { class: "lan-btn ghost", onclick: () => { this.lanLobbyOpen = false; this.render(); } }, ["숨기기"]),
+      el("button", { class: "lan-btn ghost danger", onclick: () => this.leaveLan() }, ["나가기"]),
     ]));
 
     return el("div", { class: "endgame-overlay" }, [
-      el("div", { class: "card bg-base-200 shadow-2xl p-6 max-w-md w-80" }, children),
+      el("div", { class: "lan-lobby-card" }, [
+        el("div", { class: "lan-lobby-head" }, [
+          el("div", { class: "lan-lobby-title" }, [
+            el("i", { class: "fa-solid fa-dragon mr-2" }),
+            "LAN 대전 대기실",
+          ]),
+          el("div", { class: "lan-lobby-sub" }, [`대기 중 · ${this.lanRoster.length} / 4`]),
+        ]),
+        el("div", { class: "lan-lobby-body" }, body),
+      ]),
     ]);
   }
 
