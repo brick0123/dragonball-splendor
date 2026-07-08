@@ -11,7 +11,7 @@ import { serialize, deserialize, type Snapshot } from "@/game/snapshot";
 import { LanClient, type RosterEntry } from "@/net/lan";
 import type { SimResponse } from "@/simulator/worker";
 import { Rng } from "@/game/rng";
-import { COLOR_DISPLAY, MAX_RESERVED } from "@/data/balls";
+import { COLOR_DISPLAY, MAX_RESERVED, MAX_BALLS_IN_HAND } from "@/data/balls";
 import { FUSIONS, FUSION_BY_ROMANIZED } from "@/data/cards";
 import { fusionImg, cardImg } from "./assets";
 import SimWorker from "@/simulator/worker?worker&inline";
@@ -527,8 +527,10 @@ export class Controller {
       // 이미 같은 색 2개 상태: 같은 색 클릭=취소 / 다른 색 클릭=그 색 1개로 새로 시작
       this.ballPickColors = count === 2 ? [] : [c];
     } else if (count === 0) {
-      // 새 색 추가 (take3 최대 3색)
-      if (this.ballPickColors.length < 3) this.ballPickColors.push(c);
+      // 새 색 추가: 최대 3색, 단 손 여유칸(10 한도) 이내로 제한
+      const capacity = MAX_BALLS_IN_HAND - handBallCount(this.state.players[this.mySeat]!);
+      const maxSel = Math.min(3, capacity);
+      if (this.ballPickColors.length < maxSel) this.ballPickColors.push(c);
     } else {
       // 이미 1개 잡은 색을 재클릭: 그 색만 있고 2개 가능하면 2개로, 아니면 1개 취소
       if (this.ballPickColors.length === 1 && canTake2) {
@@ -664,8 +666,8 @@ export class Controller {
     return action.pay.gold > 0;
   }
 
-  private renderScoredStacks(cardIds: string[], size: number, label: boolean): HTMLElement {
-    const wrap = el("div", { class: "scored-stacks" });
+  private renderScoredStacks(cardIds: string[], size: number, label: boolean, me = false): HTMLElement {
+    const wrap = el("div", { class: me ? "scored-stacks scored-stacks--me" : "scored-stacks" });
     const byColor = new Map<Color, string[]>();
     for (const c of COLORS) byColor.set(c, []);
 
@@ -682,7 +684,7 @@ export class Controller {
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i]!;
         const card = cardOf(id);
-        const mc = makeMiniCard(card, { size, label });
+        const mc = makeMiniCard(card, { size, label, evoCost: me });
         mc.style.zIndex = String(i + 1);
         mc.addEventListener("mouseenter", () => showTooltip(mc, card));
         mc.addEventListener("mouseleave", () => hideTooltip());
@@ -1141,7 +1143,7 @@ export class Controller {
     ]));
     scoredSection.append(
       p.scored.length > 0
-        ? this.renderScoredStacks(p.scored, 48, true)
+        ? this.renderScoredStacks(p.scored, 48, true, true)
         : el("span", { class: "text-xs opacity-30" }, ["없음"]),
     );
     const meFusions = this.renderPlayerFusions(p, 40);

@@ -2,8 +2,9 @@
 import type { BallColor, CardDef, Color, Tier } from "./types";
 import { COLORS, isNoble } from "./types";
 import type { GameState, PlayerState } from "./state";
-import { boardCardIds, canAfford, canReserveMore, cardOf, discountedCost, withinBallLimit } from "./state";
+import { boardCardIds, canAfford, canReserveMore, cardOf, discountedCost, handBallCount, withinBallLimit } from "./state";
 import { STAGE_TIERS } from "./state";
+import { MAX_BALLS_IN_HAND } from "@/data/balls";
 
 export type MainAction =
   | { type: "take3"; colors: Color[] }
@@ -37,13 +38,13 @@ function combos<T>(arr: readonly T[], k: number): T[][] {
 function legalTake3(s: GameState, p: PlayerState): MainAction[] {
   const avail = COLORS.filter((c) => s.supply[c] > 0);
   const out: MainAction[] = [];
-  if (avail.length >= 3) {
-    if (withinBallLimit(p, 3)) {
-      for (const c of combos(avail, 3)) out.push({ type: "take3", colors: c });
-    }
-  } else if (avail.length >= 1) {
-    // 남은 종류 ≤ 2: 전부 가져간다(2 or 1).
-    if (withinBallLimit(p, avail.length)) out.push({ type: "take3", colors: avail.slice() });
+  // 서로 다른 색을 1~3개까지 자유롭게 가져올 수 있다(강제 3개 아님).
+  // 실제 가져올 수 있는 최대 개수 = min(3, 남은 색 종류, 손 여유칸).
+  const capacity = MAX_BALLS_IN_HAND - handBallCount(p);
+  const maxK = Math.min(3, avail.length, capacity);
+  // 많은 개수(3→1) 순으로 생성 — 기본은 '3개', 여유가 부족하면 2·1개도 허용.
+  for (let k = maxK; k >= 1; k--) {
+    for (const c of combos(avail, k)) out.push({ type: "take3", colors: c });
   }
   return out;
 }

@@ -227,6 +227,8 @@ export interface MiniCardOpts {
   onclick?: (ev: MouseEvent) => void;
   reserveBtn?: boolean;
   evoBtn?: { sourceId: string; targetName: string; pointsGain: number };
+  /** 진화 필요 조건(색별 개수)을 카드에 표시. */
+  evoCost?: boolean;
 }
 
 /** 작은 카드 썸네일. */
@@ -243,6 +245,18 @@ export function makeMiniCard(card: CardDef, opts: MiniCardOpts = {}): HTMLElemen
   ];
   if (opts.label) {
     children.push(el("div", { class: "mini-name" }, [card.name]));
+  }
+  // 진화 필요 조건(색별 개수)을 카드에 표시 — 변신에 뭐가 몇 개 필요한지 한눈에.
+  if (opts.evoCost && card.evoCost) {
+    const evo = el("div", { class: "mini-evo", title: `변신 필요: ${evoCostSummary(card)}` }, [
+      el("i", { class: "fa-solid fa-wand-magic-sparkles mini-evo-ic" }),
+    ]);
+    for (const c of COLORS) {
+      const n = card.evoCost[c];
+      if (!n) continue;
+      evo.append(el("span", { class: `mini-evo-pip mini-evo-${COLOR_CLASS[c]}` }, [String(n)]));
+    }
+    if (evo.childElementCount > 1) children.push(evo);
   }
 
   const node = el("div", { class: cls.join(" "), dataset: { id: card.id } }, children);
@@ -263,6 +277,19 @@ function evoCostSummary(card: CardDef): string {
     .join(" ");
 }
 
+/** 변신 안내 툴팁 줄: "변신→대상 (색N …)" 에서 색 이름·수를 해당 색으로 표시. */
+function tooltipEvoLine(card: CardDef): HTMLElement {
+  const target = card.evolvesTo ? (ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo) : "";
+  const parts: (Node | string)[] = [`변신→${target} (`];
+  const entries = COLORS.filter((c) => (card.evoCost?.[c] ?? 0) > 0);
+  entries.forEach((c, i) => {
+    if (i > 0) parts.push(" ");
+    parts.push(el("span", { class: `tt-evo-c tt-evo-${COLOR_CLASS[c]}` }, [`${COLOR_LABEL[c]} ${card.evoCost![c]}`]));
+  });
+  parts.push(")");
+  return el("div", { class: "tt-evo" }, parts);
+}
+
 export function showTooltip(anchor: HTMLElement, card: CardDef): void {
   hideTooltip();
   const tip = el("div", { class: "card-tooltip" }, [
@@ -276,7 +303,7 @@ export function showTooltip(anchor: HTMLElement, card: CardDef): void {
         .map(([k, v]) => `${COLOR_LABEL[k as Color]}${v}`)
         .join(" "),
     ]),
-    card.evolvesTo ? el("div", { class: "tt-evo" }, [`변신→${ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo} (${evoCostSummary(card)})`]) : "",
+    card.evolvesTo ? tooltipEvoLine(card) : "",
   ]);
   document.body.append(tip);
   currentTooltip = tip;

@@ -4,7 +4,7 @@ import {
   createGame, cloneGame, emptyBallMap, emptyColorMap,
   discountedCost, canAfford, playerPoints, claimableFusions,
 } from "@/game/state";
-import { computePay, legalEvolutions, legalMainActions } from "@/game/actions";
+import { computePay, legalEvolutions, legalMainActions, type MainAction } from "@/game/actions";
 import {
   applyEvolution, applyMainAction, canApplyEvolution, canApplyMainAction,
   finishTurn, rankPlayers, takeTurn, winnerId,
@@ -259,12 +259,24 @@ describe("evolution", () => {
 });
 
 describe("limits", () => {
-  it("10구슬 한도: take3 위반 시 해당 액션 미생성", () => {
-    // 8개 보유 → take3(11) 불가, take2(10) 가능(공급≥4)
-    const s = soloState({ balls: { red: 4, blue: 4 } });
-    const actions = legalMainActions(s);
-    const take3s = actions.filter((a) => a.type === "take3");
-    expect(take3s).toHaveLength(0);
+  it("10구슬 한도: 여유칸까지만 take (강제 3개 아님, 1·2개 허용)", () => {
+    // 8개 보유 → 여유 2칸: 서로 다른 색 1~2개만 가능(3개짜리는 없음)
+    const t8 = legalMainActions(soloState({ balls: { red: 4, blue: 4 } }))
+      .filter((a): a is Extract<MainAction, { type: "take3" }> => a.type === "take3");
+    expect(t8.length).toBeGreaterThan(0);
+    expect(t8.every((a) => a.colors.length <= 2)).toBe(true);
+    expect(t8.some((a) => a.colors.length === 2)).toBe(true);
+
+    // 9개 보유 → 여유 1칸: 1개짜리만
+    const t9 = legalMainActions(soloState({ balls: { red: 5, blue: 4 } }))
+      .filter((a): a is Extract<MainAction, { type: "take3" }> => a.type === "take3");
+    expect(t9.length).toBeGreaterThan(0);
+    expect(t9.every((a) => a.colors.length === 1)).toBe(true);
+
+    // 10개 보유 → take3 불가
+    const t10 = legalMainActions(soloState({ balls: { red: 5, blue: 5 } }))
+      .filter((a) => a.type === "take3");
+    expect(t10).toHaveLength(0);
   });
 
   it("보관 한도 3장 초과 시 reserve 미생성", () => {

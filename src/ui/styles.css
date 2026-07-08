@@ -1057,6 +1057,56 @@ button, input, select, textarea {
   background: rgb(var(--ball-yellow-rgb));
 }
 
+/* "나" 획득칸: 카드를 크게 + 겹침 없이 나열 → 구별 가능 + 진화 조건 표시 */
+.scored-stacks--me {
+  --mini-card-width: 86px;
+  flex-wrap: wrap;
+  gap: 10px;
+  overflow-x: visible;
+}
+.scored-stacks--me .card-color-stack { gap: 8px; }
+.scored-stacks--me .card-color-stack .mini-card + .mini-card {
+  margin-top: 8px; /* 음수 겹침 제거 → 각 카드가 완전히 보임 */
+}
+.scored-stacks--me .mini-name { font-size: 11px; }
+
+/* 미니카드 진화 필요 조건 pip (색별 개수) */
+.mini-evo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 2px 4px;
+  background: rgba(0,0,0,0.35);
+}
+.mini-evo-ic { font-size: 9px; color: #ffcb05; margin-right: 1px; }
+.mini-evo-pip {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 900;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+}
+.mini-evo-red    { background: rgb(var(--ball-red-rgb)); }
+.mini-evo-blue   { background: rgb(var(--ball-blue-rgb)); }
+.mini-evo-black  { background: rgb(var(--ball-black-rgb)); color: #e5e7eb; }
+.mini-evo-pink   { background: rgb(var(--ball-pink-rgb)); color: #3a1020; }
+.mini-evo-yellow { background: rgb(var(--ball-yellow-rgb)); color: #3a2f05; }
+
+/* 툴팁 변신 줄: 색 이름·수를 해당 색으로 */
+.tt-evo-c { font-weight: 800; }
+.tt-evo-red    { color: #f87171; }
+.tt-evo-blue   { color: #60a5fa; }
+.tt-evo-black  { color: #cbd5e1; }
+.tt-evo-pink   { color: #f472b6; }
+.tt-evo-yellow { color: #fcd34d; }
+
 /* ── AI panel (compact) ───────────────────────────── */
 .ai-panel {
   padding: 9px 10px;

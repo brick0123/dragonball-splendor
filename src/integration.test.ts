@@ -50,28 +50,34 @@ describe("end-to-end integration", () => {
     expect(playerPoints(s.players[w]!)).toBeGreaterThanOrEqual(WIN_THRESHOLD);
   });
 
-  it("승리 확률: 매 턴 후 갱신 시 합리적 범위", () => {
-    const s = createGame(777, 4, HUMAN);
-    const rng = new Rng(99);
-    // 20턴 진행
-    for (let i = 0; i < 20 && !s.ended; i++) {
-      if (s.currentPlayer === HUMAN) {
-        const a = humanPick(s);
-        if (a) applyMainAction(s, a);
-      } else {
-        const pick = chooseTurn(s, "ai", rng);
-        if (pick) { applyMainAction(s, pick.action); if (pick.evolution) applyEvolution(s, pick.evolution); }
+  it("승리 확률: 합이 1이고, 리더 승률이 평균적으로 높다(여러 시드 평균)", () => {
+    // 단일 시드 20턴은 노이즈가 커서 브리틀함 → 여러 시드 평균으로 견고하게 검증.
+    const seeds = [777, 1234, 20260708, 55, 9001];
+    let leaderRateSum = 0;
+    for (const seed of seeds) {
+      const s = createGame(seed, 4, HUMAN);
+      const rng = new Rng(seed ^ 0x1234);
+      for (let i = 0; i < 20 && !s.ended; i++) {
+        if (s.currentPlayer === HUMAN) {
+          const a = humanPick(s);
+          if (a) applyMainAction(s, a);
+        } else {
+          const pick = chooseTurn(s, "ai", rng);
+          if (pick) { applyMainAction(s, pick.action); if (pick.evolution) applyEvolution(s, pick.evolution); }
+        }
+        finishTurn(s);
       }
-      finishTurn(s);
+      const wr = simulateWinRates(s, HUMAN, 120, seed);
+      expect(wr.rates.length).toBe(4);
+      expect(wr.rates.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 4);
+      wr.rates.forEach((r) => { expect(r).toBeGreaterThanOrEqual(0); expect(r).toBeLessThanOrEqual(1); });
+      const pts = s.players.map((p) => playerPoints(p));
+      const leaderIdx = pts.indexOf(Math.max(...pts));
+      leaderRateSum += wr.rates[leaderIdx]!;
     }
-    const wr = simulateWinRates(s, HUMAN, 50, 1);
-    expect(wr.rates.length).toBe(4);
-    expect(wr.rates.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 4);
-    // 리드 플레이어가 더 높은 승률 (대부분의 경우)
-    const pts = s.players.map((p) => playerPoints(p));
-    const leaderIdx = pts.indexOf(Math.max(...pts));
-    // 리더 승률이 평균(0.25) 이상일 것 (높은 신뢰도는 아니지만 기본 검증)
-    expect(wr.rates[leaderIdx]!).toBeGreaterThan(0.05);
+    // 20턴 시점의 근소한 리드는 승부 예측력이 약하므로(초반) 느슨한 하한만 검증.
+    // 핵심은 위의 승률 합=1·범위 검증(계산 정합성). 리더가 사실상 0은 아니어야 한다.
+    expect(leaderRateSum / seeds.length).toBeGreaterThan(0.1);
   });
 
   it("재시작: 새 시드로 초기화 → 이전 상태와 독립", () => {
