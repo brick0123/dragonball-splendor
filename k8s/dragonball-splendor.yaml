@@ -1,0 +1,78 @@
+# 드래곤볼 스플렌더 LAN 서버 배포 매니페스트
+# ─────────────────────────────────────────────────────────────
+# 배포 전 반드시 바꿀 값(4곳):
+#   1) <REGISTRY>/dragonball-splendor:<TAG>  → 사내 레지스트리 이미지 경로
+#   2) spec.rules[0].host                     → 접속 도메인
+#   3) spec.ingressClassName                  → 사내 인그레스 클래스(예: nginx)
+#   4) metadata.namespace                      → eren-dev (아래 전부 동일하게)
+#
+# ⚠️ replicas 는 반드시 1. 방 상태가 파드 메모리에 있어 다중 파드면 같은 방이 갈라짐.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dragonball-splendor
+  namespace: eren-dev
+  labels: { app: dragonball-splendor }
+spec:
+  replicas: 1                          # ← 고정(스케일 금지)
+  selector:
+    matchLabels: { app: dragonball-splendor }
+  template:
+    metadata:
+      labels: { app: dragonball-splendor }
+    spec:
+      containers:
+        - name: app
+          image: <REGISTRY>/dragonball-splendor:<TAG>   # ← 수정
+          ports:
+            - containerPort: 5178
+          env:
+            - name: PORT
+              value: "5178"
+          readinessProbe:
+            httpGet: { path: /, port: 5178 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: 5178 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "256Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dragonball-splendor
+  namespace: eren-dev
+  labels: { app: dragonball-splendor }
+spec:
+  selector: { app: dragonball-splendor }
+  ports:
+    - name: http
+      port: 80
+      targetPort: 5178
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dragonball-splendor
+  namespace: eren-dev
+  annotations:
+    # WebSocket 업그레이드 유지(긴 연결). nginx 인그레스 기준.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx              # ← 사내 값으로 수정
+  rules:
+    - host: dragonball.eren-dev.example.com   # ← 수정
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dragonball-splendor
+                port: { number: 80 }

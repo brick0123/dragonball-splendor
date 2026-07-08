@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.github
+incoming
+coverage
+*.log
+_lantest.mjs
+.DS_Store
