@@ -287,17 +287,14 @@ function evoCostSummary(card: CardDef): string {
     .join(" ");
 }
 
-/** 변신 안내 툴팁 줄: "변신→대상 (색N …)" 에서 색 이름·수를 해당 색으로 표시. */
+/** 변신 안내 툴팁 줄: "변신→대상 (색N …)". 줄 전체를 진화 필요 색상(주 색)으로 표시. */
 function tooltipEvoLine(card: CardDef): HTMLElement {
   const target = card.evolvesTo ? (ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo) : "";
-  const parts: (Node | string)[] = [`변신→${target} (`];
   const entries = COLORS.filter((c) => (card.evoCost?.[c] ?? 0) > 0);
-  entries.forEach((c, i) => {
-    if (i > 0) parts.push(" ");
-    parts.push(el("span", { class: `tt-evo-c tt-evo-${COLOR_CLASS[c]}` }, [`${COLOR_LABEL[c]} ${card.evoCost![c]}`]));
-  });
-  parts.push(")");
-  return el("div", { class: "tt-evo" }, parts);
+  const primary = entries[0];
+  const costTxt = entries.map((c) => `${COLOR_LABEL[c]} ${card.evoCost![c]}`).join(" ");
+  const cls = primary ? `tt-evo tt-evo-c tt-evo-${COLOR_CLASS[primary]}` : "tt-evo";
+  return el("div", { class: cls }, [`변신→${target} (${costTxt})`]);
 }
 
 export function showTooltip(anchor: HTMLElement, card: CardDef): void {
