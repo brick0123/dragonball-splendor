@@ -14,9 +14,10 @@ import { Rng } from "@/game/rng";
 import { COLOR_DISPLAY, MAX_RESERVED, MAX_BALLS_IN_HAND } from "@/data/balls";
 import { FUSIONS, FUSION_BY_ROMANIZED } from "@/data/cards";
 import { fusionImg, cardImg, ballImg, assetUrl } from "./assets";
+import { sfxPick, sfxTake, sfxBuy, sfxReserve, sfxEvolve, sfxWin, primeSfx } from "./sfx";
 import SimWorker from "@/simulator/worker?worker&inline";
 import {
-  el, ballIcon, makeCardEl, makeMiniCard,
+  el, ballIcon, makeCardEl,
   showTooltip, hideTooltip, aiLogEl,
   showEvolutionToast, showCaptureToast, showEvolveAvailableToast,
 } from "./view";
@@ -81,7 +82,8 @@ export class Controller {
   private pendingAction: MainAction | null = null; // 게스트: 변신 선택 중 보류된 메인 액션
   // ── BGM ──
   private bgmIframe: HTMLIFrameElement | null = null;
-  private bgmOn = true; // 기본 ON(자동 재생 의도). 브라우저 정책상 최초 소리는 첫 입력 때 켜짐.
+  private bgmOn = false; // 기본 OFF(사용자가 켜야 재생).
+  private static readonly BGM_VOLUME = 80; // 기존 100 기준 -20%
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -110,8 +112,8 @@ export class Controller {
     document.body.append(holder);
     this.bgmIframe = iframe;
 
-    // 첫 사용자 입력 시(브라우저 자동재생 정책) 실제 소리를 켠다. bgmOn 이면 재생.
-    const enableSound = () => { if (this.bgmOn) this.applyBgm(); };
+    // 첫 사용자 입력 시(브라우저 자동재생 정책) 효과음 컨텍스트를 깨우고, bgmOn 이면 BGM 재생.
+    const enableSound = () => { primeSfx(); if (this.bgmOn) this.applyBgm(); };
     window.addEventListener("pointerdown", enableSound, { once: true });
     window.addEventListener("keydown", enableSound, { once: true });
   }
@@ -126,7 +128,7 @@ export class Controller {
   private applyBgm(): void {
     if (this.bgmOn) {
       this.bgmCmd("unMute");
-      this.bgmCmd("setVolume", [100]);
+      this.bgmCmd("setVolume", [Controller.BGM_VOLUME]);
       this.bgmCmd("playVideo");
     } else {
       this.bgmCmd("pauseVideo");
@@ -751,6 +753,7 @@ export class Controller {
     this.lanLobbyOpen = false;
     this.inGame = true;
     if (this.state.ended) {
+      if (this.phase !== "ended") sfxWin();
       this.phase = "ended";
       this.endOverlayOpen = true;
     } else if (this.netMode === "spectator") {
@@ -817,7 +820,12 @@ export class Controller {
   }
 
   private startTurn(): void {
-    if (this.state.ended) { this.phase = "ended"; this.render(); return; }
+    if (this.state.ended) {
+      if (this.phase !== "ended") sfxWin(); // 종료 순간 1회
+      this.phase = "ended";
+      this.render();
+      return;
+    }
     const cur = this.state.currentPlayer;
     if (cur === this.mySeat) {
       // 내 차례
@@ -931,6 +939,11 @@ export class Controller {
       }
     }
 
+    // 액션별 효과음
+    if (action.type === "acquire") sfxBuy();
+    else if (action.type === "reserve" || action.type === "reserveBlind") sfxReserve();
+    else sfxTake(); // take2 / take3
+
     const fusesBefore = this.state.players[this.mySeat]!.fusions.slice();
     applyMainAction(this.state, action);
     this.notifyHumanFusion(fusesBefore);
@@ -951,6 +964,7 @@ export class Controller {
   private humanEvolve(evo: Evolution | null): void {
     if (this.phase !== "human-evolve") return;
     if (evo) {
+      sfxEvolve();
       const fusesBefore = this.state.players[this.mySeat]!.fusions.slice();
       applyEvolution(this.state, evo);
       const targetCard = cardOf(evo.targetId);
@@ -1018,6 +1032,7 @@ export class Controller {
         this.ballPickColors.splice(this.ballPickColors.indexOf(c), 1);
       }
     }
+    sfxPick();
     this.render();
   }
 
@@ -1176,7 +1191,7 @@ export class Controller {
     return action.pay.gold > 0;
   }
 
-  private renderScoredStacks(cardIds: string[], size: number, label: boolean, me = false): HTMLElement {
+  private renderScoredStacks(cardIds: string[], me = false): HTMLElement {
     const wrap = el("div", { class: me ? "scored-stacks scored-stacks--me" : "scored-stacks" });
     const byColor = new Map<Color, string[]>();
     for (const c of COLORS) byColor.set(c, []);
@@ -1194,7 +1209,8 @@ export class Controller {
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i]!;
         const card = cardOf(id);
-        const mc = makeMiniCard(card, { size, label, evoCost: me });
+        // 인벤토리도 보드(카드 리스트)와 동일한 카드 디자인을 그대로 사용
+        const mc = makeCardEl(card, {});
         mc.style.zIndex = String(i + 1);
         mc.addEventListener("mouseenter", () => showTooltip(mc, card));
         mc.addEventListener("mouseleave", () => hideTooltip());
@@ -1535,8 +1551,9 @@ export class Controller {
     const turnText = this.state.ended ? "게임 종료" : `${this.playerName(this.state.currentPlayer)} 차례`;
 
     const logEl = aiLogEl();
-    for (const entry of this.aiLog) {
-      logEl.append(el("div", {}, [entry]));
+    // 최신 로그가 위로 오도록 역순 표시
+    for (let i = this.aiLog.length - 1; i >= 0; i--) {
+      logEl.append(el("div", {}, [this.aiLog[i]!]));
     }
 
     const newGameBtn = el("button", {
@@ -1829,7 +1846,7 @@ export class Controller {
 
   private renderMePanel(): HTMLElement {
     const p = this.state.players[this.mySeat]!;
-    const cls = ["player-panel"];
+    const cls = ["player-panel", "me-panel"];
     if (this.state.currentPlayer === this.mySeat && !this.state.ended) cls.push("current-turn");
 
     const panel = el("div", { class: cls.join(" ") });
@@ -1867,7 +1884,7 @@ export class Controller {
     ]));
     scoredSection.append(
       p.scored.length > 0
-        ? this.renderScoredStacks(p.scored, 48, true, true)
+        ? this.renderScoredStacks(p.scored, true)
         : el("span", { class: "text-xs opacity-30" }, ["없음"]),
     );
     const meFusions = this.renderPlayerFusions(p, 40);
@@ -1885,12 +1902,14 @@ export class Controller {
       const card = cardOf(id);
       const affordable = canAfford(p, card);
       const myTurn = this.isHumanTurn() && this.phase === "human-action";
-      const mc = makeMiniCard(card, {
-        size: 48,
-        label: true,
+      // 보관 카드도 보드 카드 그대로 → 필요 비용 pip 이 항상 보임(모바일 탭 문제 해결)
+      const mc = makeCardEl(card, {
+        clickable: myTurn,
         affordable: myTurn && affordable,
+        dim: myTurn && !affordable,
         onclick: myTurn ? () => this.onReservedCardClick(id) : undefined,
       });
+      mc.classList.add("reserved-poke");
       mc.addEventListener("mouseenter", () => showTooltip(mc, card));
       mc.addEventListener("mouseleave", () => hideTooltip());
       reservedScroll.append(mc);
@@ -1945,7 +1964,7 @@ export class Controller {
 
     // Scored cards — 나와 동일하게 크게 + 진화 필요 색상 표시
     if (p.scored.length > 0) {
-      panel.append(this.renderScoredStacks(p.scored, 48, true, true));
+      panel.append(this.renderScoredStacks(p.scored, true));
     }
     const aiFusions = this.renderPlayerFusions(p, 40);
     if (aiFusions) panel.append(aiFusions);
@@ -1957,7 +1976,8 @@ export class Controller {
       ]);
       for (const id of p.reserved) {
         const card = cardOf(id);
-        const mc = makeMiniCard(card, { size: 36 });
+        const mc = makeCardEl(card, {});
+        mc.classList.add("reserved-poke");
         mc.addEventListener("mouseenter", () => showTooltip(mc, card));
         mc.addEventListener("mouseleave", () => hideTooltip());
         reservedRow.append(mc);
@@ -1969,7 +1989,7 @@ export class Controller {
   }
 
   private renderActionPanel(): HTMLElement {
-    const panel = el("div", { class: "player-panel" });
+    const panel = el("div", { class: "player-panel action-panel" });
 
     // Message
     if (this.msg.text) {

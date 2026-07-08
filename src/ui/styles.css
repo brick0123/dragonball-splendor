@@ -332,14 +332,18 @@ button, input, select, textarea {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
+.tier-row:last-child { border-bottom: none; }
 .tier-row .tier-label {
   writing-mode: vertical-rl;
-  text-orientation: mixed;
-  font-size: 14px;
-  color: rgba(255,255,255,0.5);
+  text-orientation: upright; /* 숫자·글자를 똑바로(눕지 않게) */
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.55);
   flex-shrink: 0;
-  letter-spacing: 2px;
+  letter-spacing: 0;
 }
 .tier-cards {
   display: flex;
@@ -363,7 +367,8 @@ button, input, select, textarea {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   cursor: default;
   --pc-accent: 235,184,210;
-  background: linear-gradient(rgba(var(--pc-accent),0.22), rgba(var(--pc-accent),0.22)), #ffffff;
+  /* 카드 본문 전체 = 해당 드래곤볼 색의 연한 톤(흰색 아님) */
+  background: linear-gradient(rgba(var(--pc-accent),0.34), rgba(var(--pc-accent),0.34)), #ffffff;
   border: 4px solid rgb(var(--pc-accent));
   box-shadow: 0 2px 9px rgba(0,0,0,0.4);
 }
@@ -430,7 +435,7 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: transparent; /* 본문 연한 색 틴트가 캐릭터 주변으로 비치도록 */
   min-height: 0;
   overflow: hidden;
 }
@@ -770,39 +775,72 @@ button, input, select, textarea {
 }
 .scored-stacks--me .mini-face { height: 92px; }
 /* 진화 안내 상단 배너: 다음 진화 카드 + 필요 색상(진화 주 색상으로 채색) */
-.mini-evo-top {
+/* 상단 정보바: [왼쪽] 이 카드 구슬 | [오른쪽] 진화 필요 — 두 영역을 명확히 구분 */
+.mini-topbar {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 2px solid rgba(255,255,255,0.18);
+}
+.mini-own {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   padding: 4px 5px;
-  background: rgba(0,0,0,0.6);
-  border-bottom: 2px solid currentColor;
-  color: #ffcb05;
+  background: rgba(0,0,0,0.55);
+  border-right: 2px solid rgba(255,255,255,0.22);
 }
-.mini-evo-top .mini-next-img {
-  width: 28px;
-  height: 36px;
-  object-fit: cover;
-  border-radius: 3px;
-  background: #fff;
-  border: 1.5px solid currentColor;
+.mini-own img { display: block; }
+.mini-evo-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 5px;
+  color: #fff;
+  overflow: hidden;
+}
+.mini-evo-block .mini-next-img {
+  width: 36px;
+  height: 46px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.14); /* 흰 누끼 박스 제거 → 은은한 반투명 */
+  border: 1px solid rgba(255,255,255,0.4);
   flex: 0 0 auto;
 }
-.mini-evo-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.mini-evo-top .mini-next-name {
-  font-size: 10px;
-  font-weight: 800;
-  color: currentColor;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.mini-evo-side { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.mini-evo-arrow { font-size: 9px; font-weight: 900; letter-spacing: 0.2px; opacity: 0.95; white-space: nowrap; }
+.mini-evo-reqs { display: flex; flex-wrap: nowrap; gap: 4px; }
+.mini-evo-req { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.mini-evo-req img { display: block; }
+.mini-evo-x { font-size: 11px; font-weight: 900; white-space: nowrap; }
+.mini-max { align-items: center; justify-content: center; }
+.mini-max-txt { font-size: 10px; font-weight: 800; opacity: 0.65; }
+/* 진화 필요 색상 = 오른쪽 블록 배경색(한눈에 구별) */
+.mini-evo-c-red    { background: rgba(185,28,28,0.82); }
+.mini-evo-c-blue   { background: rgba(29,78,216,0.82); }
+.mini-evo-c-black  { background: rgba(51,65,85,0.92); }
+.mini-evo-c-pink   { background: rgba(190,24,93,0.82); }
+.mini-evo-c-yellow { background: rgba(161,98,7,0.88); }
+/* 미니카드 우측 상단: 이 카드가 내는 드래곤볼 배지 */
+.mini-ball {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 6;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
-.mini-evo-top .mini-evo { display: flex; gap: 3px; background: none; padding: 0; }
-.mini-evo-c-red    { color: #f87171; }
-.mini-evo-c-blue   { color: #60a5fa; }
-.mini-evo-c-black  { color: #cbd5e1; }
-.mini-evo-c-pink   { color: #f472b6; }
-.mini-evo-c-yellow { color: #fcd34d; }
+.mini-ball img { display: block; }
 .mini-card .mini-name {
   font-size: 11px;
   text-align: center;
@@ -1076,37 +1114,58 @@ button, input, select, textarea {
 .card-color-stack .mini-card + .mini-card {
   margin-top: calc(-1 * var(--scored-stack-overlap));
 }
+/* 인벤토리 카드도 보드 카드와 동일: 본문 = 연한 색 톤(흰 누끼 아님), 상단 = 진한 톤 */
 .scored-stacks .mini-card {
-  background: #111827;
+  background: #f4f4f6;
 }
 .scored-stacks .mini-card.card-bg-red {
-  background: rgb(var(--ball-red-rgb));
+  background: linear-gradient(rgba(var(--ball-red-rgb),0.30), rgba(var(--ball-red-rgb),0.30)), #fff;
 }
 .scored-stacks .mini-card.card-bg-blue {
-  background: rgb(var(--ball-blue-rgb));
+  background: linear-gradient(rgba(var(--ball-blue-rgb),0.30), rgba(var(--ball-blue-rgb),0.30)), #fff;
 }
 .scored-stacks .mini-card.card-bg-black {
-  background: rgb(var(--ball-black-rgb));
+  background: linear-gradient(rgba(51,54,61,0.34), rgba(51,54,61,0.34)), #fff;
 }
 .scored-stacks .mini-card.card-bg-pink {
-  background: rgb(var(--ball-pink-rgb));
+  background: linear-gradient(rgba(var(--ball-pink-rgb),0.30), rgba(var(--ball-pink-rgb),0.30)), #fff;
 }
 .scored-stacks .mini-card.card-bg-yellow {
-  background: rgb(var(--ball-yellow-rgb));
+  background: linear-gradient(rgba(var(--ball-yellow-rgb),0.34), rgba(var(--ball-yellow-rgb),0.34)), #fff;
 }
 
-/* "나" 획득칸: 카드를 크게 + 겹침 없이 넉넉한 간격으로 나열 */
+/* 획득칸(나·상대 공통): 보드 카드(poke-card)를 그대로 사용, 같은 색은 세로로 겹치되 상단(점수·진화·구슬)만 노출 */
 .scored-stacks--me {
-  --mini-card-width: 104px;
+  --card-width: 124px;
+  --card-height: calc(124px * 1.585); /* 로컬 폭 기준으로 높이 고정(안 그러면 :root 폭으로 계산돼 세로로 길어짐) */
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 14px;
+  align-items: flex-start;
   overflow-x: visible;
 }
-.scored-stacks--me .card-color-stack { gap: 12px; }
-.scored-stacks--me .card-color-stack .mini-card + .mini-card {
-  margin-top: 12px; /* 음수 겹침 제거 → 각 카드가 완전히 보임 */
+.scored-stacks--me .card-color-stack { gap: 0; }
+.scored-stacks--me .card-color-stack .poke-card + .poke-card {
+  /* 아래(아트·이름)를 가리고 위(점수·진화·구슬 헤더)만 겹쳐 보이게 */
+  margin-top: -116px;
 }
-.scored-stacks--me .mini-name { font-size: 12px; }
+/* 세로 스택에서 flex-basis 가 높이에 적용돼 찌그러지지 않도록 auto 로 풀고, 폭/높이는 변수로 고정 */
+.scored-stacks--me .poke-card {
+  flex: 0 0 auto;
+  width: var(--card-width);
+  height: var(--card-height);
+  border-width: 3px;
+}
+
+/* 보관 카드도 보드 카드(poke-card) 그대로 — 작게 */
+.card-scroll .reserved-poke,
+.ai-reserved-row .reserved-poke {
+  --card-width: 96px;
+  --card-height: calc(96px * 1.585);
+  width: var(--card-width);
+  height: var(--card-height);
+  flex: 0 0 auto;
+  border-width: 3px;
+}
 
 /* 미니카드 진화 필요 조건 pip (색별 개수) */
 .mini-evo {
@@ -1283,14 +1342,15 @@ button, input, select, textarea {
 .ai-panel .ai-reserved-row .mini-card {
   border-style: dashed;
 }
-.ai-panel .mini-card {
-  width: 50px;
+/* 보관(예약) 카드: 캐릭터가 잘 보이게 크게 (나·상대 공통) */
+.mini-card.reserved-mini {
+  width: 88px;
 }
-.ai-panel .mini-card img {
-  height: 40px;
+.mini-card.reserved-mini .mini-face {
+  height: 80px;
 }
-.ai-panel .mini-card .mini-name {
-  display: none;
+.mini-card.reserved-mini .mini-name {
+  font-size: 10px;
 }
 .mini-card {
   transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -1302,16 +1362,9 @@ button, input, select, textarea {
   box-shadow: 0 6px 16px rgba(0,0,0,0.32);
 }
 .ai-panel .scored-stacks {
-  gap: 10px;
   margin-top: 6px;
-  padding: 1px 2px 6px 0;
 }
-.ai-panel .card-color-stack {
-  min-width: 50px;
-}
-.ai-panel .card-color-stack .mini-card + .mini-card {
-  margin-top: calc(-1 * var(--ai-scored-stack-overlap));
-}
+/* 상대 획득칸도 '나'와 동일: 크기·겹침(상단 진화 노출)을 그대로 쓰므로 별도 override 없음 */
 
 /* ── Evolution overlay ────────────────────────────── */
 .evo-btn {
@@ -1880,12 +1933,13 @@ button, input, select, textarea {
     min-height: 100dvh;
   }
   :root {
-    --card-width: clamp(108px, 32vw, 136px);
-    --card-image-height: clamp(72px, 22vw, 96px);
-    --mini-card-width: 58px;
-    --scored-stack-overlap: 40px;
-    --ai-scored-stack-overlap: 24px;
-    --scored-stack-gap: 10px;
+    /* 화면 폭에 4장이 꽉 차게(가로 스크롤 없이) */
+    --card-width: clamp(64px, calc((100vw - 62px) / 4), 128px);
+    --card-image-height: clamp(60px, 20vw, 96px);
+    --mini-card-width: 52px;
+    --scored-stack-overlap: 34px;
+    --ai-scored-stack-overlap: 22px;
+    --scored-stack-gap: 8px;
   }
   .game-layout {
     display: flex;
@@ -1956,33 +2010,35 @@ button, input, select, textarea {
   .ai-log {
     order: 4;
     flex: 1 1 100%;
-    max-height: 34px;
+    max-height: 80px;
     overflow: auto;
-    font-size: 10px;
-    line-height: 1.25;
-    padding: 2px 0;
-    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 4px 2px;
+    color: rgba(255,255,255,0.82);
   }
   .game-right {
-    order: 2;
     display: contents;
     min-width: 0;
     overflow: visible;
     border-left: 0;
   }
-  .game-right > .player-panel:first-child {
-    order: 2;
+  /* 세로 정렬 순서: 헤더(1) → 카드 보드(2) → 구슬 공급(3) → 내 정보(4) → 내 액션(5) → 상대들(6) */
+  .game-right > .supply-bar--top { order: 3; margin: 0 8px; }
+  .game-right > .me-panel {
+    order: 4;
     margin: 8px 8px 0;
   }
-  .game-right > .player-panel:last-child {
-    order: 3;
+  .game-right > .action-panel {
+    order: 5;
     margin: 8px;
     background: rgba(8,12,22,0.96);
   }
   .game-right > .ai-panel {
-    order: 5;
+    order: 6;
     margin: 0 8px 8px;
   }
+  .game-right > .spectator-banner { order: 3; margin: 8px; }
   .player-panel,
   .ai-panel {
     border-radius: 8px;
@@ -2020,10 +2076,10 @@ button, input, select, textarea {
     overflow: auto;
   }
   .game-left > .flex.flex-col.gap-2.flex-1 {
-    order: 4;
+    order: 2;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     padding: 8px;
     min-width: 0;
   }
@@ -2061,34 +2117,50 @@ button, input, select, textarea {
   }
   .tier-row {
     align-items: stretch;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
-    padding: 2px 0;
+    padding: 2px 0 8px;
   }
   .tier-label {
     writing-mode: horizontal-tb;
     text-orientation: initial;
     letter-spacing: 0;
-    flex: 0 0 42px;
+    flex: 0 0 30px;
     align-self: center;
     text-align: center;
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1.1;
     color: rgba(255,255,255,0.65);
   }
   .tier-cards {
-    gap: 7px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    padding: 2px 2px 8px;
-    -webkit-overflow-scrolling: touch;
+    gap: 4px;
+    overflow-x: visible;
+    flex-wrap: nowrap;
+    padding: 1px 0 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* 카드를 줄 폭에 맞게 균등 축소 → 한 줄에 다 보이고 가로 스크롤 없음 */
+  .tier-cards > .poke-card {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
   }
   .poke-card {
     flex-basis: var(--card-width);
     width: var(--card-width);
-    min-height: 166px;
-    border-radius: 8px;
-    scroll-snap-align: start;
+    min-height: 0;
+    border-radius: 7px;
+  }
+  /* 좁은 카드에서 이름이 1글자만 보이던 문제 → 하단 전체 폭 라벨로 */
+  .poke-card .pc-name {
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    max-width: none;
+    padding: 1px 3px;
+    font-size: 8.5px;
+    border-width: 1px;
   }
   .card-img {
     height: var(--card-image-height);

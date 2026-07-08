@@ -228,11 +228,11 @@ export function cloneGame(s: GameState): GameState {
 export function refillBoard(state: GameState, tier: Tier, id: string): void {
   const arr = state.board[tier];
   const idx = arr.indexOf(id);
-  if (idx >= 0) arr.splice(idx, 1);
-  const limit = tier === "rare" || tier === "legendary" ? 1 : REVEAL_PER_STAGE;
-  while (arr.length < limit && state.decks[tier].length > 0) {
-    arr.push(state.decks[tier].pop()!);
-  }
+  if (idx < 0) return;
+  const deck = state.decks[tier];
+  // 위치 유지: 빈 슬롯만 덱에서 제자리 교체(전체 왼쪽 재정렬 방지). 덱 소진 시에만 슬롯 제거.
+  if (deck.length > 0) arr[idx] = deck.pop()!;
+  else arr.splice(idx, 1);
 }
 
 /** 최대 보관 가능 여부. */

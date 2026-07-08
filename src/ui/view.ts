@@ -242,26 +242,46 @@ export function makeMiniCard(card: CardDef, opts: MiniCardOpts = {}): HTMLElemen
 
   const children: (Node | string)[] = [];
 
-  // 진화 안내(상단): 다음 진화 카드 + 필요 색상. 진화 주 색상으로 채색.
-  if (opts.evoCost && card.evoCost && card.evolvesTo) {
-    const primary = COLORS.find((c) => (card.evoCost![c] ?? 0) > 0);
-    const primaryCls = primary ? COLOR_CLASS[primary] : "";
-    const nextTier: Tier = card.tier === 1 ? 2 : 3;
-    const nextName = ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo;
+  // 상단: [좌] 이 카드 구슬 · [가운데] 진화 필요(진화색) · [우] 다음 진화 썸네일
+  //  → 좌/우는 카드 색상 그대로, 가운데만 진화 카드 색상.
+  if (opts.evoCost) {
+    const topbar = el("div", { class: "mini-topbar" });
 
-    const pips = el("div", { class: "mini-evo", title: `변신 필요: ${evoCostSummary(card)}` });
-    for (const c of COLORS) {
-      const n = card.evoCost[c];
-      if (!n) continue;
-      pips.append(el("span", { class: `mini-evo-pip mini-evo-${COLOR_CLASS[c]}` }, [String(n)]));
+    // 좌: 이 카드의 드래곤볼(카드 색상 위)
+    if (bonusClr) {
+      topbar.append(el("div", { class: "mini-own", title: `이 카드 구슬: ${COLOR_LABEL[bonusClr]}` }, [
+        ballIcon(bonusClr, 26),
+      ]));
     }
-    children.push(el("div", { class: `mini-evo-top mini-evo-c-${primaryCls}`, title: `다음 변신: ${nextName}` }, [
-      el("img", { class: "mini-next-img", src: cardImg(nextTier, card.evolvesTo), alt: nextName }),
-      el("div", { class: "mini-evo-info" }, [
-        el("span", { class: "mini-next-name" }, [nextName]),
-        pips,
-      ]),
-    ]));
+
+    if (card.evoCost && card.evolvesTo) {
+      const primary = COLORS.find((c) => (card.evoCost![c] ?? 0) > 0);
+      const primaryCls = primary ? COLOR_CLASS[primary] : "";
+      const nextTier: Tier = card.tier === 1 ? 2 : 3;
+      const nextName = ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo;
+
+      // 가운데: 진화 색상 pill(▲진화 + 필요 구슬)
+      const reqs = el("div", { class: "mini-evo-reqs" });
+      for (const c of COLORS) {
+        const n = card.evoCost[c];
+        if (!n) continue;
+        reqs.append(el("span", { class: "mini-evo-req" }, [
+          ballIcon(c, 18),
+          el("span", { class: "mini-evo-x" }, [`×${n}`]),
+        ]));
+      }
+      topbar.append(el("div", { class: `mini-evo-mid mini-evo-c-${primaryCls}`, title: `변신 필요: ${evoCostSummary(card)}` }, [
+        el("span", { class: "mini-evo-arrow" }, ["▲ 진화"]),
+        reqs,
+      ]));
+
+      // 우: 다음 진화 캐릭터 썸네일(카드 색상 위, 흰 박스 없음)
+      topbar.append(el("img", { class: "mini-next-img", src: cardImg(nextTier, card.evolvesTo), alt: nextName, title: `다음 변신: ${nextName}` }));
+    } else {
+      topbar.append(el("div", { class: "mini-evo-mid mini-max" }, [el("span", { class: "mini-max-txt" }, ["최종형태"])]));
+    }
+
+    children.push(topbar);
   }
 
   children.push(el("img", { class: "mini-face", src: cardImg(card.tier, card.romanized), alt: card.name }));
@@ -270,6 +290,11 @@ export function makeMiniCard(card: CardDef, opts: MiniCardOpts = {}): HTMLElemen
   }
 
   const node = el("div", { class: cls.join(" "), dataset: { id: card.id } }, children);
+
+  // evoCost 미표시(보관 등)일 땐 우측 상단 배지로 드래곤볼 표시
+  if (!opts.evoCost && bonusClr) {
+    node.append(el("div", { class: "mini-ball", title: COLOR_LABEL[bonusClr] }, [ballIcon(bonusClr, 20)]));
+  }
 
   if (opts.onclick) node.addEventListener("click", opts.onclick);
   return node;
