@@ -323,6 +323,11 @@ export function showEvolutionToast(characterName: string): void {
   showToast(`${characterName} 변신 성공!`, "fa-wand-magic-sparkles", 3000);
 }
 
+/** 내 차례에 변신 가능함을 알리는 토스트. */
+export function showEvolveAvailableToast(): void {
+  showToast("변신 가능!", "fa-wand-magic-sparkles", 2500);
+}
+
 /** 전설 획득 토스트. */
 export function showCaptureToast(characterName: string): void {
   showToast(`${characterName} 획득!`, "fa-trophy", 3000);

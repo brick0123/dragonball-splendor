@@ -17,7 +17,7 @@ import SimWorker from "@/simulator/worker?worker&inline";
 import {
   el, ballIcon, ballChip, makeCardEl, makeMiniCard, colorCountBadge,
   showTooltip, hideTooltip, aiLogEl,
-  showEvolutionToast, showCaptureToast,
+  showEvolutionToast, showCaptureToast, showEvolveAvailableToast,
 } from "./view";
 
 const HUMAN_INDEX = 0;
@@ -127,9 +127,8 @@ export class Controller {
     const fusesBefore = this.state.players[aiIdx]!.fusions.slice();
     applyMainAction(this.state, pick.action);
     if (pick.evolution) {
+      // 상대(AI) 변신은 화면 토스트 없이 로그로만 처리
       applyEvolution(this.state, pick.evolution);
-      const targetCard = cardOf(pick.evolution.targetId);
-      showEvolutionToast(targetCard.name);
     }
     this.pushAiLog(desc);
     for (const r of this.state.players[aiIdx]!.fusions) {
@@ -202,6 +201,7 @@ export class Controller {
     if (evos.length > 0) {
       this.phase = "human-evolve";
       this.setMsg({ kind: "ok", text: "변신 가능! 변신하거나 건너뛸 수 있습니다." });
+      showEvolveAvailableToast();
       this.render();
     } else {
       this.advance();
