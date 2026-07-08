@@ -1383,8 +1383,8 @@ export class Controller {
         ]),
         el("button", { class: "home-mode lan", onclick: () => { this.homeOpen = false; this.openLanLobby(); } }, [
           el("div", { class: "home-mode-icon" }, ["🌐"]),
-          el("div", { class: "home-mode-name" }, ["LAN 대전"]),
-          el("div", { class: "home-mode-desc" }, ["같은 네트워크의 친구들과"]),
+          el("div", { class: "home-mode-name" }, ["온라인 대전"]),
+          el("div", { class: "home-mode-desc" }, ["온라인으로 친구들과 대전"]),
         ]),
       ]),
     ]));
@@ -1398,7 +1398,7 @@ export class Controller {
         el("div", { class: "lan-lobby-head" }, [
           el("div", { class: "lan-lobby-title" }, [
             el("i", { class: "fa-solid fa-dragon mr-2" }),
-            isList ? "LAN 대전 · 방 목록" : "대기실",
+            isList ? "온라인 대전 · 방 목록" : "대기실",
           ]),
           el("div", { class: "lan-lobby-sub" }, [
             isList ? `${this.roomList.length}개 방` : `대기 중 · ${this.lanRoster.length} / 4`,
@@ -1585,7 +1585,7 @@ export class Controller {
       ? el("button", {
           class: "btn btn-sm btn-info btn-outline",
           onclick: () => this.openLanLobby(),
-        }, [el("i", { class: "fa-solid fa-network-wired mr-1" }), "LAN 대전"])
+        }, [el("i", { class: "fa-solid fa-network-wired mr-1" }), "온라인 대전"])
       : el("button", {
           class: "btn btn-sm btn-info btn-outline",
           onclick: () => { this.lanLobbyOpen = true; this.lanView = "list"; this.render(); },
@@ -1598,7 +1598,7 @@ export class Controller {
     const exitLanBtn = this.netMode !== "local"
       ? el("button", {
           class: "btn btn-sm btn-error btn-outline",
-          onclick: () => { if (window.confirm("LAN 게임에서 나가시겠습니까?")) this.leaveLan(); },
+          onclick: () => { if (window.confirm("온라인 게임에서 나가시겠습니까?")) this.leaveLan(); },
         }, [el("i", { class: "fa-solid fa-xmark mr-1" }), "나가기"])
       : "";
 
