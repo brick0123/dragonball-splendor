@@ -22,6 +22,7 @@ import {
 } from "./view";
 
 const DEFAULT_SEAT = 0;
+const SAVE_KEY = "dbs-save-v1"; // 로컬(싱글) 진행 상태 저장 키
 const MC_N = 200;
 const AI_DELAY_MS = 450;
 const MASTER_BALL_SPEND_CONFIRM = "이 카드를 구입하면 궁극의 드래곤볼이 소모됩니다. 계속하시겠습니까?";
@@ -153,8 +154,60 @@ export class Controller {
     this.ballPickColors = [];
     this.ballPickActive = false;
     this.endOverlayOpen = true;
+    this.netMode = "local";
+    this.mySeat = DEFAULT_SEAT;
+    this.humanSeats = new Set([DEFAULT_SEAT]);
     this.render();
+    this.saveGame();
     this.startTurn();
+  }
+
+  /** 앱 시작: 저장된 로컬 게임이 있으면 이어서, 없으면 새 게임. */
+  start(): void {
+    if (!this.tryRestore()) this.newGame();
+  }
+
+  /** 로컬 진행 상태를 localStorage 에 저장(LAN 은 저장 안 함). */
+  private saveGame(): void {
+    if (this.netMode !== "local") return;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        snap: serialize(this.state),
+        names: this.playerNames,
+        aiLog: this.aiLog,
+      }));
+    } catch { /* 저장 실패는 무시 */ }
+  }
+
+  /** 저장된 로컬 게임 복원. 성공 시 true. */
+  private tryRestore(): boolean {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw) as { snap: Snapshot; names?: string[]; aiLog?: string[] };
+      const state = deserialize(data.snap);
+      if (!state?.players?.length) return false;
+      this.state = state;
+      this.playerNames = data.names ?? this.playerNames;
+      this.aiLog = data.aiLog ?? [];
+      this.netMode = "local";
+      this.mySeat = DEFAULT_SEAT;
+      this.humanSeats = new Set([DEFAULT_SEAT]);
+      this.ballPickColors = [];
+      this.ballPickActive = false;
+      this.endOverlayOpen = true;
+      this.winRates = new Array(state.numPlayers).fill(1 / state.numPlayers);
+      this.winRatesStale = true;
+      this.activeWinRateRequestId = ++this.winRateRequestSeq;
+      this.probSeed = (Math.random() * 1e9) | 0;
+      this.setMsg({ kind: "info", text: "이전 게임을 이어서 진행합니다." });
+      this.render();
+      this.requestWinProb();
+      this.startTurn();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** 새 게임 전 확인. LAN 모드별 분기. */
@@ -430,6 +483,7 @@ export class Controller {
   private advance(): void {
     finishTurn(this.state);
     if (this.netMode === "host") this.broadcastState();
+    this.saveGame();
     this.requestWinProb();
     this.startTurn();
   }

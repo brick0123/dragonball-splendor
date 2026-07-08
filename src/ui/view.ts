@@ -287,6 +287,21 @@ function evoCostSummary(card: CardDef): string {
     .join(" ");
 }
 
+/** 비용 툴팁 줄: 색별 [색이름+수]를 해당 색으로 표시. */
+function tooltipCostLine(card: CardDef): HTMLElement {
+  const parts: (Node | string)[] = ["비용: "];
+  const entries = COLORS.filter((c) => (card.cost[c] ?? 0) > 0);
+  entries.forEach((c, i) => {
+    if (i > 0) parts.push(" ");
+    parts.push(el("span", { class: `tt-cost-c tt-cost-${COLOR_CLASS[c]}` }, [`${COLOR_LABEL[c]}${card.cost[c]}`]));
+  });
+  if (isNoble(card.tier)) {
+    parts.push(" ");
+    parts.push(el("span", { class: "tt-cost-c tt-cost-gold" }, ["궁극1"]));
+  }
+  return el("div", { class: "tt-cost" }, parts);
+}
+
 /** 변신 안내 툴팁 줄: "변신→대상 (색N …)". 줄 전체를 진화 필요 색상(주 색)으로 표시. */
 function tooltipEvoLine(card: CardDef): HTMLElement {
   const target = card.evolvesTo ? (ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo) : "";
@@ -303,13 +318,7 @@ export function showTooltip(anchor: HTMLElement, card: CardDef): void {
     el("img", { src: cardImg(card.tier, card.romanized), alt: card.name }),
     el("div", { class: "tt-name" }, [card.name]),
     card.points ? el("div", { class: "tt-pts" }, [`${card.points}점`]) : "",
-    el("div", { class: "tt-cost" }, [
-      "비용: ",
-      ...Object.entries(card.cost)
-        .filter(([, v]) => v && v > 0)
-        .map(([k, v]) => `${COLOR_LABEL[k as Color]}${v}`)
-        .join(" "),
-    ]),
+    tooltipCostLine(card),
     card.evolvesTo ? tooltipEvoLine(card) : "",
   ]);
   document.body.append(tip);

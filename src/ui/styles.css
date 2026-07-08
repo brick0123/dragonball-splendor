@@ -225,7 +225,7 @@ button, input, select, textarea {
   --ball-yellow: rgb(var(--ball-yellow-rgb));
   --ball-gold: rgb(var(--ball-gold-rgb));
   /* 신용카드 비율(54:85.6=1:1.585). 창 너비에 맞춰 4장이 가로 스크롤 없이 들어가도록 반응형. */
-  --card-width: clamp(99px, calc((100vw - 760px) / 4 * 0.85), 212px);
+  --card-width: clamp(120px, calc((100vw - 700px) / 4), 260px);
   --card-height: calc(var(--card-width) * 1.585);
   --card-image-height: 150px;
   --mini-card-width: 72px;
@@ -239,6 +239,8 @@ button, input, select, textarea {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  max-width: 1760px;       /* 초광폭 모니터에서 가운데 정렬(극단적 여백 방지) */
+  margin-inline: auto;
 }
 
 .game-left {
@@ -1596,6 +1598,13 @@ button, input, select, textarea {
 .card-tooltip .tt-cost {
   margin-top: 4px;
 }
+.card-tooltip .tt-cost .tt-cost-c { font-weight: 800; }
+.card-tooltip .tt-cost .tt-cost-red    { color: #f87171; }
+.card-tooltip .tt-cost .tt-cost-blue   { color: #60a5fa; }
+.card-tooltip .tt-cost .tt-cost-black  { color: #cbd5e1; }
+.card-tooltip .tt-cost .tt-cost-pink   { color: #f472b6; }
+.card-tooltip .tt-cost .tt-cost-yellow { color: #fcd34d; }
+.card-tooltip .tt-cost .tt-cost-gold   { color: #c9a0ff; }
 .card-tooltip .tt-evo {
   color: #fbbf24; /* 기본(색 지정 없을 때). 아래 색상 클래스가 우선 */
   margin-top: 2px;
