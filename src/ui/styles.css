@@ -556,18 +556,14 @@ button, input, select, textarea {
   animation: glow-pulse 1.5s ease-in-out infinite;
 }
 
-/* ── 희귀·전설 = 초사이어인 골드 프리미엄 룩 (정적) ── */
+/* ── 희귀·전설 = 배경/테두리는 다른 카드와 동일(보너스 색). 프리미엄은 광택/그림자로만 ── */
 .poke-card.pc-rare {
-  border-color: #f4c430;
-  background: linear-gradient(rgba(255,205,60,0.32), rgba(255,180,30,0.14)), #fffdf4;
-  box-shadow: 0 0 0 2px rgba(255,200,50,0.55), 0 3px 13px rgba(180,130,0,0.45);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.28), 0 3px 13px rgba(0,0,0,0.5);
 }
 .poke-card.pc-legendary {
-  border-color: #ffcf2e;
-  background: linear-gradient(rgba(255,198,42,0.46), rgba(255,158,18,0.22)), #fffdf2;
-  box-shadow: 0 0 0 3px rgba(255,190,40,0.8), 0 4px 18px rgba(200,140,0,0.55);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.4), 0 4px 18px rgba(0,0,0,0.55);
 }
-/* 상단 코너의 정적 금빛 광택(하이라이트) */
+/* 상단 코너의 정적 광택(하이라이트) — 색이 아닌 흰빛 */
 .poke-card.pc-rare::after,
 .poke-card.pc-legendary::after {
   content: "";
@@ -575,15 +571,8 @@ button, input, select, textarea {
   inset: 0;
   pointer-events: none;
   z-index: 4;
-  background: radial-gradient(120% 60% at 15% 0%, rgba(255,255,220,0.55), rgba(255,255,220,0) 55%);
+  background: radial-gradient(120% 60% at 15% 0%, rgba(255,255,255,0.4), rgba(255,255,255,0) 55%);
   mix-blend-mode: screen;
-}
-/* 등급 라벨도 골드로 */
-.poke-card.pc-rare .pc-stage,
-.poke-card.pc-legendary .pc-stage {
-  color: #7a5600;
-  background: rgba(255,224,120,0.92);
-  font-weight: 800;
 }
 
 /* 이름 배지 (우측 하단 pill, 아트 위 오버레이 — 실물 카드 우하단 이름표) */
