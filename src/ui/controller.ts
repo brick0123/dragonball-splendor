@@ -48,6 +48,7 @@ export class Controller {
   private aiLog: string[] = [];
   private ballPickColors: Color[] = [];
   private ballPickActive = false;
+  private endOverlayOpen = true; // 게임 종료 시 순위/새 게임 질문 오버레이 표시 여부
   private playerNames: string[] = ["나", "AI 1", "AI 2", "AI 3"];
 
   constructor(root: HTMLElement) {
@@ -73,8 +74,17 @@ export class Controller {
     this.aiLog = [];
     this.ballPickColors = [];
     this.ballPickActive = false;
+    this.endOverlayOpen = true;
     this.render();
     this.startTurn();
+  }
+
+  /** 새 게임 전 확인. 게임이 진행 중이면 되묻고, 종료 상태면 바로 시작. */
+  private promptNewGame(): void {
+    if (!this.state.ended) {
+      if (!window.confirm("진행 중인 게임을 종료하고 새 게임을 시작할까요?")) return;
+    }
+    this.newGame();
   }
 
   // ── Helpers ──
@@ -427,7 +437,7 @@ export class Controller {
     this.root.replaceChildren(
       this.renderGameLayout(),
     );
-    if (this.state.ended) {
+    if (this.state.ended && this.endOverlayOpen) {
       this.root.append(this.renderEndOverlay());
     }
   }
@@ -458,11 +468,21 @@ export class Controller {
 
     const newGameBtn = el("button", {
       class: "btn btn-sm btn-warning btn-outline",
-      onclick: () => this.newGame(),
+      onclick: () => this.promptNewGame(),
     }, [
       el("i", { class: "fa-solid fa-rotate-right mr-1" }),
       "새 게임",
     ]);
+
+    const rankBtn = this.state.ended
+      ? el("button", {
+          class: "btn btn-sm btn-ghost",
+          onclick: () => { this.endOverlayOpen = true; this.render(); },
+        }, [
+          el("i", { class: "fa-solid fa-ranking-star mr-1" }),
+          "순위 보기",
+        ])
+      : "";
 
     return el("div", { class: "game-header" }, [
       el("span", { class: "title" }, [
@@ -474,6 +494,7 @@ export class Controller {
         turnText,
       ]),
       logEl,
+      rankBtn,
       newGameBtn,
     ]);
   }
@@ -943,13 +964,21 @@ export class Controller {
             el("tbody", {}, rows),
           ]),
         ]),
-        el("div", { class: "card-actions justify-center mt-4" }, [
+        el("div", { class: "text-center mt-4 mb-1 opacity-80" }, ["새 게임을 시작하시겠습니까?"]),
+        el("div", { class: "card-actions justify-center mt-1 gap-2" }, [
           el("button", {
             class: "btn btn-warning",
             onclick: () => this.newGame(),
           }, [
             el("i", { class: "fa-solid fa-rotate-right mr-1" }),
-            "새 게임",
+            "예, 새 게임",
+          ]),
+          el("button", {
+            class: "btn btn-ghost",
+            onclick: () => { this.endOverlayOpen = false; this.render(); },
+          }, [
+            el("i", { class: "fa-solid fa-xmark mr-1" }),
+            "아니요 (결과 보기)",
           ]),
         ]),
       ]),
