@@ -319,16 +319,17 @@ export class Controller {
     this.render();
   }
 
-  /** 현재 방을 나와 방 목록으로 (연결은 유지). */
+  /** 방 목록 화면으로 전환(연결·방 유지). 내 방으로 다시 돌아올 수 있음. */
   private backToRoomList(): void {
-    // 방을 나가려면 연결을 끊고 다시 연결(서버가 close 로 방에서 제거).
-    this.lan?.close();
-    this.lan = null;
-    this.netMode = "local";
-    this.mySeat = DEFAULT_SEAT;
-    this.humanSeats = new Set([DEFAULT_SEAT]);
-    this.lanJoined = false;
-    this.openLanLobby();
+    this.lanError = "";
+    this.lanView = "list";
+    this.render();
+  }
+
+  /** 내 방(대기실)으로 돌아가기. */
+  private backToMyRoom(): void {
+    this.lanView = "lobby";
+    this.render();
   }
 
   private leaveLan(): void {
@@ -892,49 +893,59 @@ export class Controller {
     ]);
   }
 
-  /** 방 목록 화면: 닉네임 입력 + 방 생성 + 방들(참가/관전). */
+  /** 방 목록 화면: 닉네임 입력 + 방 생성 + 방들(참가/관전). 이미 방에 있으면 '내 방으로'. */
   private renderRoomListBody(): (HTMLElement | string)[] {
     const body: (HTMLElement | string)[] = [];
     if (this.lanError) body.push(el("div", { class: "lan-err" }, [this.lanError]));
 
-    // 닉네임
-    body.push(el("input", {
-      class: "lan-input", type: "text", maxLength: 20, placeholder: "닉네임 입력",
-      value: this.lanName,
-      oninput: (e: Event) => { this.lanName = (e.target as HTMLInputElement).value; },
-    }));
+    const inRoom = this.lanJoined; // 현재 방(방장/참가자)에 소속
 
-    // 새 방 만들기
-    body.push(el("div", { class: "lan-join-row", style: "margin-top:8px" }, [
-      el("input", {
-        class: "lan-input", type: "text", maxLength: 24, placeholder: "새 방 이름(선택)",
-        value: this.lanNewRoomName,
-        oninput: (e: Event) => { this.lanNewRoomName = (e.target as HTMLInputElement).value; },
-        onkeydown: (e: KeyboardEvent) => { if (e.key === "Enter") this.createRoom(); },
-      }),
-      el("button", { class: "lan-btn primary", onclick: () => this.createRoom() }, [
-        el("i", { class: "fa-solid fa-plus mr-1" }), "방 만들기",
-      ]),
-    ]));
+    if (inRoom) {
+      // 이미 방에 있음 → 내 방으로 돌아가기(연결 유지). 다른 방 생성/참가는 나간 뒤 가능.
+      body.push(el("button", { class: "lan-btn primary block", onclick: () => this.backToMyRoom() }, [
+        el("i", { class: "fa-solid fa-right-to-bracket mr-1" }), "내 방으로 돌아가기",
+      ]));
+      body.push(el("div", { class: "lan-hint" }, ["다른 방에 가려면 먼저 '나가기'로 지금 방을 떠나세요."]));
+    } else {
+      // 닉네임 + 새 방 만들기
+      body.push(el("input", {
+        class: "lan-input", type: "text", maxLength: 20, placeholder: "닉네임 입력",
+        value: this.lanName,
+        oninput: (e: Event) => { this.lanName = (e.target as HTMLInputElement).value; },
+      }));
+      body.push(el("div", { class: "lan-join-row", style: "margin-top:8px" }, [
+        el("input", {
+          class: "lan-input", type: "text", maxLength: 24, placeholder: "새 방 이름(선택)",
+          value: this.lanNewRoomName,
+          oninput: (e: Event) => { this.lanNewRoomName = (e.target as HTMLInputElement).value; },
+          onkeydown: (e: KeyboardEvent) => { if (e.key === "Enter") this.createRoom(); },
+        }),
+        el("button", { class: "lan-btn primary", onclick: () => this.createRoom() }, [
+          el("i", { class: "fa-solid fa-plus mr-1" }), "방 만들기",
+        ]),
+      ]));
+    }
 
     // 방 목록
     body.push(el("div", { class: "lan-room-list" },
       this.roomList.length === 0
         ? [el("div", { class: "lan-hint" }, ["아직 방이 없습니다. 새 방을 만들어보세요!"])]
-        : this.roomList.map((r) => this.renderRoomRow(r)),
+        : this.roomList.map((r) => this.renderRoomRow(r, inRoom)),
     ));
 
-    body.push(el("div", { class: "lan-actions" }, [
+    const actions: (HTMLElement | string)[] = [
       el("button", { class: "lan-btn ghost", onclick: () => { this.lanLobbyOpen = false; this.render(); } }, ["숨기기"]),
-      el("button", { class: "lan-btn ghost danger", onclick: () => this.leaveLan() }, ["LAN 종료"]),
-    ]));
+    ];
+    if (inRoom) actions.push(el("button", { class: "lan-btn ghost danger", onclick: () => this.leaveLan() }, ["방 나가기"]));
+    else actions.push(el("button", { class: "lan-btn ghost danger", onclick: () => this.leaveLan() }, ["LAN 종료"]));
+    body.push(el("div", { class: "lan-actions" }, actions));
     return body;
   }
 
-  private renderRoomRow(r: RoomInfo): HTMLElement {
+  private renderRoomRow(r: RoomInfo, inRoom: boolean): HTMLElement {
     const playing = r.status === "playing";
     const full = r.players >= r.max;
-    const canJoin = !playing && !full;
+    const canJoin = !inRoom && !playing && !full;
     return el("div", { class: "lan-room" }, [
       el("div", { class: "lan-room-info" }, [
         el("div", { class: "lan-room-name" }, [
@@ -946,7 +957,7 @@ export class Controller {
           r.spectators > 0 ? `  👁 ${r.spectators}` : "",
         ]),
       ]),
-      el("div", { class: "lan-room-btns" }, [
+      el("div", { class: "lan-room-btns" }, inRoom ? [] : [
         canJoin
           ? el("button", { class: "lan-btn primary sm", onclick: () => this.joinRoom(r.code) }, ["참가"])
           : "",
