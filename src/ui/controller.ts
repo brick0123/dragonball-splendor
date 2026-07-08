@@ -667,20 +667,20 @@ export class Controller {
     const orbSize = compact ? 22 : 30;
     for (const c of COLORS) {
       wrap.append(el("div", { class: "res-cell", title: this.colorTotalTitle(p, c) }, [
+        el("div", { class: `res-total res-c-${c}` }, [String(this.colorTotal(p, c))]),
         el("div", { class: "res-orb" }, [
           ballIcon(c, orbSize),
           el("span", { class: "res-ball-cnt" }, [String(p.balls[c])]),
         ]),
-        el("div", { class: `res-total res-c-${c}` }, [String(this.colorTotal(p, c))]),
       ]));
     }
     if (p.balls.gold > 0) {
       wrap.append(el("div", { class: "res-cell", title: `궁극의 드래곤볼 ${p.balls.gold}개 (와일드)` }, [
+        el("div", { class: "res-total res-c-gold" }, ["✦"]),
         el("div", { class: "res-orb" }, [
           ballIcon("gold", orbSize),
           el("span", { class: "res-ball-cnt" }, [String(p.balls.gold)]),
         ]),
-        el("div", { class: "res-total res-c-gold" }, ["✦"]),
       ]));
     }
     return wrap;
@@ -1138,7 +1138,7 @@ export class Controller {
     // 자원(옵션 A): 위=구슬(공) 보유수, 아래=카드보너스+공 합계
     const resSection = el("div", { class: "panel-section" });
     resSection.append(el("div", { class: "res-head text-[9px] opacity-60 mb-1" }, [
-      el("span", {}, [el("i", { class: "fa-solid fa-coins mr-1" }), "자원 (위: 공 / 아래: 카드+공 합)"]),
+      el("span", {}, [el("i", { class: "fa-solid fa-coins mr-1" }), "자원 (위: 카드+공 합 / 아래: 공)"]),
       el("span", { class: "res-sum" }, [this.resourceSummary(p)]),
     ]));
     resSection.append(this.renderResourceGrid(p));
