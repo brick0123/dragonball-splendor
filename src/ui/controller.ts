@@ -75,6 +75,9 @@ export class Controller {
   private lanReconnect: { code: string; token: string; role: string; name: string } | null = null;
   private lanResuming = false; // 새로고침 후 자동 재접속 중
   private lanReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private lanNetDown = false; // 일시적 네트워크 끊김 → 자동 재연결 중(에러 대신 배너)
+  private lanReconnectTries = 0;
+  private lanReconnectDeadline = 0;
   private pendingAction: MainAction | null = null; // 게스트: 변신 선택 중 보류된 메인 액션
   // ── BGM ──
   private bgmIframe: HTMLIFrameElement | null = null;
@@ -363,6 +366,14 @@ export class Controller {
         this.lanRoster = roster;
         this.lanJoined = true;
         this.saveLanSession({ code, token, role: isHost ? "host" : "guest", name: this.lanName || "플레이어" });
+        // 자동 재연결 성공: 상태 복구하고 배너 해제(화면 전환 없음)
+        if (this.lanNetDown) {
+          this.endNetReconnect();
+          if (isHost && this.inGame && this.restoreHostGame()) { this.broadcastState(); return; }
+          if (!this.inGame) { this.lanView = "lobby"; this.lanLobbyOpen = false; this.enterLobbyPreview(); }
+          this.render();
+          return;
+        }
         if (this.lanResuming) {
           this.lanResuming = false;
           this.lanLobbyOpen = false;
@@ -378,6 +389,7 @@ export class Controller {
       },
       onSpectating: (code, roster) => {
         if (this.lanReconnectTimer) { clearTimeout(this.lanReconnectTimer); this.lanReconnectTimer = null; }
+        if (this.lanNetDown) { this.endNetReconnect(); }
         this.lanResuming = false;
         this.lanCode = code;
         this.mySeat = -1;
@@ -393,13 +405,33 @@ export class Controller {
       onRoster: (roster) => { this.lanRoster = roster; this.onLanRosterChange(); },
       onRelay: (from, payload) => this.handleRelay(from, payload),
       onResend: () => { if (this.netMode === "host" && this.inGame) this.broadcastState(); },
-      onReconnectFail: () => { this.clearLanSession(); this.fallbackToLocal("이전 방을 찾지 못했습니다."); },
+      onReconnectFail: () => {
+        // 자동 재연결 중이면(유예 초과로 자리 사라짐) 조용히 싱글로
+        if (this.lanNetDown) { this.giveUpReconnect(); return; }
+        this.clearLanSession();
+        this.fallbackToLocal("이전 방을 찾지 못했습니다.");
+      },
       onError: (msg) => { this.lanError = msg; this.render(); },
       onClose: (reason) => {
         this.lan = null;
         // 의도적으로 나간 경우(싱글 모드 전환 등): 뒤늦은 close 이벤트로 UI를 되돌리지 않는다.
         if (this.lanClosing) { this.lanClosing = false; return; }
         if (this.lanResuming) { this.lanResuming = false; this.fallbackToLocal(""); return; }
+        // 자동 재연결 중 소켓이 또 끊김 → 잠시 후 다음 시도(배너 유지)
+        if (this.lanNetDown) {
+          if (this.lanReconnectTimer) clearTimeout(this.lanReconnectTimer);
+          const sess = this.readLanSession();
+          if (!sess) { this.giveUpReconnect(); return; }
+          this.lanReconnectTimer = setTimeout(() => this.netReconnectStep(sess), 800);
+          return;
+        }
+        // 방/게임 중 일시적 끊김 → 에러 대신 자동 재연결 시작
+        const sess = this.readLanSession();
+        if (sess && (this.inGame || this.lanJoined || this.netMode === "spectator")) {
+          this.beginNetReconnect(sess);
+          return;
+        }
+        // 그 외(단순 로비 브라우징 등): 방 목록으로
         this.lanError = reason;
         this.netMode = "local";
         this.mySeat = DEFAULT_SEAT;
@@ -410,6 +442,59 @@ export class Controller {
         this.render();
       },
     };
+  }
+
+  /** 일시적 네트워크 끊김 → 자동 재연결 시작(에러 대신 배너, 서버 유예시간 내 자리 복구). */
+  private beginNetReconnect(sess: { code: string; token: string; role: string; name: string }): void {
+    this.lanNetDown = true;
+    this.lanReconnectTries = 0;
+    this.lanReconnectDeadline = Date.now() + 40000; // 서버 유예 30s + 여유
+    if (sess.name) this.lanName = sess.name;
+    this.render();
+    this.netReconnectStep(sess);
+  }
+
+  private netReconnectStep(sess: { code: string; token: string; role: string; name: string }): void {
+    if (!this.lanNetDown) return;
+    if (Date.now() > this.lanReconnectDeadline) { this.giveUpReconnect(); return; }
+    this.lanReconnectTries++;
+    this.render();
+    this.lanReconnect = sess;
+    this.lan = new LanClient();
+    this.lan.connect(this.lanUrl(), this.lanHandlers());
+    if (this.lanReconnectTimer) clearTimeout(this.lanReconnectTimer);
+    // 이 시도가 4초 안에 성공 못하면 정리하고 재시도
+    this.lanReconnectTimer = setTimeout(() => {
+      if (!this.lanNetDown || !this.lan) return;
+      this.lanClosing = true;
+      try { this.lan.close(); } catch { /* noop */ }
+      this.lan = null;
+      this.lanReconnectTimer = setTimeout(() => this.netReconnectStep(sess), 500);
+    }, 4000);
+  }
+
+  /** 재연결 성공: 배너 해제 + 타이머 정리. */
+  private endNetReconnect(): void {
+    this.lanNetDown = false;
+    this.lanReconnect = null;
+    if (this.lanReconnectTimer) { clearTimeout(this.lanReconnectTimer); this.lanReconnectTimer = null; }
+  }
+
+  /** 재연결 포기(유예 초과·방 사라짐): 조용히 싱글로 복귀. */
+  private giveUpReconnect(): void {
+    this.lanNetDown = false;
+    if (this.lanReconnectTimer) { clearTimeout(this.lanReconnectTimer); this.lanReconnectTimer = null; }
+    if (this.lan) { this.lanClosing = true; try { this.lan.close(); } catch { /* noop */ } this.lan = null; }
+    this.clearLanSession();
+    this.netMode = "local";
+    this.mySeat = DEFAULT_SEAT;
+    this.humanSeats = new Set([DEFAULT_SEAT]);
+    this.leftSeats = new Set();
+    this.lanJoined = false;
+    this.lanLobbyOpen = false;
+    this.lanView = "list";
+    this.setMsg({ kind: "info", text: "연결이 오래 끊겨 방에서 나왔습니다." });
+    if (!this.tryRestore()) this.newGame();
   }
 
   private fireReconnect(s: { code: string; token: string; role: string }): void {
@@ -1134,6 +1219,7 @@ export class Controller {
     if (!this.inGame) {
       this.root.replaceChildren(this.renderWaitingLayout());
       if (this.lanLobbyOpen) this.root.append(this.renderLanOverlay());
+      if (this.lanNetDown) this.root.append(this.renderReconnectBanner());
       return;
     }
     this.root.replaceChildren(
@@ -1145,6 +1231,15 @@ export class Controller {
     if (this.lanLobbyOpen) {
       this.root.append(this.renderLanOverlay());
     }
+    if (this.lanNetDown) this.root.append(this.renderReconnectBanner());
+  }
+
+  /** 일시적 끊김 시 상단에 뜨는 재연결 배너(에러 대신). */
+  private renderReconnectBanner(): HTMLElement {
+    return el("div", { class: "reconnect-banner" }, [
+      el("span", { class: "reconnect-spin" }, []),
+      el("span", {}, ["네트워크 재연결 중…"]),
+    ]);
   }
 
   /** LAN 대기 화면: 카드 보드/AI 없이 방 참가자 + 시작 컨트롤을 보여준다. */

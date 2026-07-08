@@ -1593,6 +1593,35 @@ button, input, select, textarea {
 .waiting-dots { margin-top: 10px; font-size: 13px; opacity: 0.7; }
 .waiting-links { display: flex; gap: 8px; margin-top: 20px; }
 .lan-btn.lg { font-size: 15px; padding: 13px 18px; width: 100%; }
+
+/* ── 자동 재연결 배너 ── */
+.reconnect-banner {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(20,24,38,0.92);
+  border: 1px solid rgba(255,203,5,0.35);
+  color: #ffe08a;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  backdrop-filter: blur(8px);
+}
+.reconnect-spin {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,203,5,0.3);
+  border-top-color: #ffcb05;
+  animation: rcspin 0.8s linear infinite;
+}
+@keyframes rcspin { to { transform: rotate(360deg); } }
 .waiting-right-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; opacity: 0.85; }
 .waiting-empty { font-size: 13px; opacity: 0.55; white-space: pre-line; line-height: 1.6; }
 .waiting-player {
