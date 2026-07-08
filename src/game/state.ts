@@ -171,10 +171,17 @@ export function createGame(seed: number, numPlayers = 4, humanIndex = 0): GameSt
       evolutions: 0,
     });
   }
+  // 인원수별 시작 칩 조정: 4인 기준, 3인 -2, 2인(이하) -3. 골드(궁극의 드래곤볼)는 제외.
+  const cut = numPlayers <= 2 ? 3 : numPlayers === 3 ? 2 : 0;
+  const supply: Record<BallColor, number> = { ...INITIAL_BALL_SUPPLY };
+  for (const c of ["red", "blue", "black", "pink", "yellow"] as const) {
+    supply[c] = Math.max(0, INITIAL_BALL_SUPPLY[c] - cut);
+  }
+
   const state: GameState = {
     rng,
     numPlayers,
-    supply: { ...INITIAL_BALL_SUPPLY },
+    supply,
     decks,
     board,
     players,

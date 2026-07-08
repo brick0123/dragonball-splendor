@@ -1720,8 +1720,9 @@ button, input, select, textarea {
   background: var(--home-bg) left center / contain no-repeat, #ffffff;
 }
 @media (max-width: 820px) {
-  .home-screen { justify-content: center; }
-  .home-screen.has-bg { background: var(--home-bg) center top / contain no-repeat, #ffffff; }
+  /* 세로 화면: contain 이면 좌상단에 작게만 보이므로 cover 로 화면을 채운다(캐릭터 쪽 정렬) */
+  .home-screen { justify-content: center; align-items: flex-end; padding: 20px 16px 40px; }
+  .home-screen.has-bg { background: var(--home-bg) 12% 22% / cover no-repeat, #070a1c; }
 }
 
 /* 떠다니는 드래곤볼 장식(좌측 아트 위) */
