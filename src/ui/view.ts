@@ -240,33 +240,33 @@ export function makeMiniCard(card: CardDef, opts: MiniCardOpts = {}): HTMLElemen
   const bonusClr = cardBonusColor(card);
   if (bonusClr) cls.push(`card-bg-${COLOR_CLASS[bonusClr]}`);
 
-  const children: (Node | string)[] = [
-    el("img", { src: cardImg(card.tier, card.romanized), alt: card.name }),
-  ];
-  if (opts.label) {
-    children.push(el("div", { class: "mini-name" }, [card.name]));
-  }
-  // 진화 필요 조건(색별 개수)을 카드에 표시 — 변신에 뭐가 몇 개 필요한지 한눈에.
-  if (opts.evoCost && card.evoCost) {
-    const evo = el("div", { class: "mini-evo", title: `변신 필요: ${evoCostSummary(card)}` }, [
-      el("i", { class: "fa-solid fa-wand-magic-sparkles mini-evo-ic" }),
-    ]);
+  const children: (Node | string)[] = [];
+
+  // 진화 안내(상단): 다음 진화 카드 + 필요 색상. 진화 주 색상으로 채색.
+  if (opts.evoCost && card.evoCost && card.evolvesTo) {
+    const primary = COLORS.find((c) => (card.evoCost![c] ?? 0) > 0);
+    const primaryCls = primary ? COLOR_CLASS[primary] : "";
+    const nextTier: Tier = card.tier === 1 ? 2 : 3;
+    const nextName = ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo;
+
+    const pips = el("div", { class: "mini-evo", title: `변신 필요: ${evoCostSummary(card)}` });
     for (const c of COLORS) {
       const n = card.evoCost[c];
       if (!n) continue;
-      evo.append(el("span", { class: `mini-evo-pip mini-evo-${COLOR_CLASS[c]}` }, [String(n)]));
+      pips.append(el("span", { class: `mini-evo-pip mini-evo-${COLOR_CLASS[c]}` }, [String(n)]));
     }
-    if (evo.childElementCount > 1) children.push(evo);
-  }
-  // 다음 진화 카드 미리보기(덱처럼) — 이 카드가 무엇으로 변신하는지.
-  if (opts.evoCost && card.evolvesTo) {
-    const nextTier: Tier = card.tier === 1 ? 2 : 3;
-    const nextName = ROMAN_TO_KR[card.evolvesTo] ?? card.evolvesTo;
-    children.push(el("div", { class: "mini-next", title: `다음 변신: ${nextName}` }, [
-      el("i", { class: "fa-solid fa-arrow-down mini-next-arr" }),
+    children.push(el("div", { class: `mini-evo-top mini-evo-c-${primaryCls}`, title: `다음 변신: ${nextName}` }, [
       el("img", { class: "mini-next-img", src: cardImg(nextTier, card.evolvesTo), alt: nextName }),
-      el("span", { class: "mini-next-name" }, [nextName]),
+      el("div", { class: "mini-evo-info" }, [
+        el("span", { class: "mini-next-name" }, [nextName]),
+        pips,
+      ]),
     ]));
+  }
+
+  children.push(el("img", { class: "mini-face", src: cardImg(card.tier, card.romanized), alt: card.name }));
+  if (opts.label) {
+    children.push(el("div", { class: "mini-name" }, [card.name]));
   }
 
   const node = el("div", { class: cls.join(" "), dataset: { id: card.id } }, children);

@@ -167,7 +167,12 @@ export class Controller {
     if (!this.state.ended) {
       if (!window.confirm("진행 중인 게임을 종료하고 새 게임을 시작할까요?")) return;
     }
-    if (this.netMode === "host") { this.startLanGame(); return; }
+    if (this.netMode === "host") {
+      // 이전 게임의 AI 채움 여부를 유지해 재시작.
+      const hadAi = this.state.numPlayers > this.humanSeats.size;
+      this.startLanGame(hadAi);
+      return;
+    }
     this.newGame();
   }
 
@@ -241,12 +246,16 @@ export class Controller {
     this.newGame();
   }
 
-  /** 호스트: LAN 게임 시작(빈 좌석은 AI). 초기 상태를 전원에게 브로드캐스트. */
-  private startLanGame(): void {
+  /** 호스트: LAN 게임 시작.
+   *  fillAi=true → 4인으로 AI 채움. false → 참가자끼리(2~4인, AI 없음). */
+  private startLanGame(fillAi: boolean): void {
     if (this.netMode !== "host") return;
     const seed = (Math.random() * 1e9) | 0;
+    const humanCount = this.lanRoster.length;
+    // 참가자 좌석은 서버가 0..N-1 로 연속 배정하므로 그대로 사용.
     this.humanSeats = new Set(this.lanRoster.map((r) => r.seat));
-    this.state = createGame(seed, 4, 0);
+    const numPlayers = fillAi ? 4 : Math.max(2, humanCount);
+    this.state = createGame(seed, numPlayers, 0);
     this.setLanNames(seed);
     this.phase = "human-action";
     this.aiLog = [];
@@ -254,7 +263,7 @@ export class Controller {
     this.ballPickActive = false;
     this.endOverlayOpen = true;
     this.lanLobbyOpen = false;
-    this.winRates = new Array(4).fill(0.25);
+    this.winRates = new Array(numPlayers).fill(1 / numPlayers);
     this.winRatesStale = true;
     this.activeWinRateRequestId = ++this.winRateRequestSeq;
     this.probSeed = (Math.random() * 1e9) | 0;
@@ -684,7 +693,7 @@ export class Controller {
   /** 자원 그리드(옵션 A): 색상별로 위=구슬(공) 아이콘+보유수, 아래=카드보너스+공 합계. */
   private renderResourceGrid(p: PlayerState, compact = false): HTMLElement {
     const wrap = el("div", { class: compact ? "res-grid res-grid--sm" : "res-grid" });
-    const orbSize = compact ? 22 : 30;
+    const orbSize = compact ? 26 : 30;
     for (const c of COLORS) {
       wrap.append(el("div", { class: "res-cell", title: this.colorTotalTitle(p, c) }, [
         el("div", { class: `res-total res-c-${c}` }, [String(this.colorTotal(p, c))]),
@@ -810,11 +819,18 @@ export class Controller {
         }, [el("i", { class: "fa-solid fa-right-to-bracket mr-1" }), "입장"]),
       ]));
     } else if (this.netMode === "host") {
-      body.push(el("div", { class: "lan-hint" }, ["빈 자리는 AI로 채워집니다"]));
+      const n = this.lanRoster.length;
+      if (n >= 2) {
+        body.push(el("button", {
+          class: "lan-btn primary block",
+          onclick: () => this.startLanGame(false),
+        }, [el("i", { class: "fa-solid fa-play mr-1" }), `참가자끼리 시작 (${n}인)`]));
+      }
       body.push(el("button", {
-        class: "lan-btn primary block",
-        onclick: () => this.startLanGame(),
-      }, [el("i", { class: "fa-solid fa-play mr-1" }), "게임 시작"]));
+        class: "lan-btn ghost block",
+        onclick: () => this.startLanGame(true),
+      }, [el("i", { class: "fa-solid fa-robot mr-1" }), "AI 채워서 4인 시작"]));
+      if (n < 2) body.push(el("div", { class: "lan-hint" }, ["2명 이상 입장하면 사람끼리도 플레이할 수 있어요"]));
     } else {
       body.push(el("div", { class: "lan-hint" }, [
         el("span", { class: "loading-dots" }, ["호스트가 시작하기를 기다리는 중"]),
