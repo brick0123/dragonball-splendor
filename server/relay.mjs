@@ -1,10 +1,9 @@
-// LAN 대전 릴레이 서버.
-// - 빌드된 단일 HTML(dist/dragonball-splendor.html)을 HTTP 로 서빙
-// - WebSocket 으로 같은 방(room) 참가자끼리 메시지를 릴레이(중계)
-// 게임 규칙은 브라우저(호스트 권위)에서 처리한다. 서버는 좌석 배정 + 중계만 담당.
+// LAN 대전 릴레이 서버 (다중 방 + 방 목록 + 관전).
+// - 빌드된 단일 HTML 서빙 + WebSocket 릴레이
+// - 여러 방 동시 진행, 방 목록 구독, 새 방 생성, 참가, 관전 지원
+// 게임 규칙은 브라우저(호스트 권위)에서 처리. 서버는 방/좌석/중계만 담당.
 //
-// 실행: npm run lan  (먼저 npm run build 로 dist 생성)
-// 같은 공유기의 다른 기기는 http://<호스트-랜IP>:<PORT> 로 접속.
+// 실행: npm run lan  (먼저 npm run build)
 
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
@@ -23,130 +22,132 @@ if (!existsSync(HTML_PATH)) {
   process.exit(1);
 }
 
-// ── HTTP: 단일 HTML 서빙 ─────────────────────────────────────────────
 const server = createServer((req, res) => {
-  // 어떤 경로든 게임 페이지 반환(SPA 단일 파일).
   try {
-    const html = readFileSync(HTML_PATH);
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(html);
-  } catch {
-    res.writeHead(500);
-    res.end("build not found");
-  }
+    res.end(readFileSync(HTML_PATH));
+  } catch { res.writeHead(500); res.end("build not found"); }
 });
 
-// ── WebSocket 릴레이 ─────────────────────────────────────────────────
 const wss = new WebSocketServer({ server });
 
-/** roomCode -> { members: Map<seat, {ws, name}>, watchers: Set<ws> } */
+/** code -> { code, name, members:Map<seat,{ws,name}>, spectators:Set<ws>, status } */
 const rooms = new Map();
+const lobbySubs = new Set(); // 방 목록 구독 중인 소켓
+let codeSeq = 0;
 
-function roomOf(code) {
-  let r = rooms.get(code);
-  if (!r) { r = { members: new Map(), watchers: new Set() }; rooms.set(code, r); }
-  return r;
-}
-
-function rosterOf(room) {
-  return [...room.members.entries()]
-    .map(([seat, m]) => ({ seat, name: m.name }))
-    .sort((a, b) => a.seat - b.seat);
-}
-
-function firstFreeSeat(room) {
-  for (let s = 0; s < MAX_SEATS; s++) if (!room.members.has(s)) return s;
-  return -1;
-}
-
-function send(ws, obj) {
-  if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj));
-}
-
-function broadcastRoster(room) {
-  const roster = rosterOf(room);
-  for (const m of room.members.values()) send(m.ws, { t: "roster", roster });
-  for (const w of room.watchers) send(w, { t: "roster", roster });
-}
+const send = (ws, obj) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); };
+const hostOf = (r) => r.members.get(0)?.ws;
+const rosterOf = (r) => [...r.members.entries()].map(([seat, m]) => ({ seat, name: m.name })).sort((a, b) => a.seat - b.seat);
+function firstFreeSeat(r) { for (let s = 0; s < MAX_SEATS; s++) if (!r.members.has(s)) return s; return -1; }
+const roomInfo = (r) => ({ code: r.code, name: r.name, players: r.members.size, max: MAX_SEATS, status: r.status, spectators: r.spectators.size });
+const roomList = () => [...rooms.values()].map(roomInfo);
+function pushLobby() { const rl = roomList(); for (const w of lobbySubs) send(w, { t: "rooms", rooms: rl }); }
+function broadcastRoster(r) { const roster = rosterOf(r); for (const m of r.members.values()) send(m.ws, { t: "roster", roster }); for (const w of r.spectators) send(w, { t: "roster", roster }); }
 
 wss.on("connection", (ws) => {
-  ws.meta = { room: null, seat: -1 };
+  ws.meta = { code: null, seat: -1, role: "none" };
 
   ws.on("message", (raw) => {
-    let msg;
-    try { msg = JSON.parse(raw.toString()); } catch { return; }
+    let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
 
-    // 관전(대기실만 구독): 좌석을 차지하지 않고 실시간 로스터만 받는다.
-    if (msg.t === "watch") {
-      const code = String(msg.room ?? "main");
-      const room = roomOf(code);
-      room.watchers.add(ws);
-      ws.meta = { room: code, seat: -1 };
-      send(ws, { t: "roster", roster: rosterOf(room) });
-      return;
-    }
+    switch (msg.t) {
+      case "watch-lobby":
+        lobbySubs.add(ws);
+        send(ws, { t: "rooms", rooms: roomList() });
+        return;
 
-    if (msg.t === "join") {
-      const code = String(msg.room ?? ws.meta.room ?? "main");
-      const room = roomOf(code);
-      if (ws.meta.seat >= 0) return; // 이미 착석
-      const seat = firstFreeSeat(room);
-      if (seat < 0) { send(ws, { t: "full" }); return; }
-      const name = String(msg.name ?? `P${seat + 1}`).slice(0, 20);
-      room.watchers.delete(ws);
-      room.members.set(seat, { ws, name });
-      ws.meta = { room: code, seat };
-      const isHost = seat === 0; // 좌석 0(첫 착석자) = 호스트
-      send(ws, { t: "joined", seat, isHost, roster: rosterOf(room) });
-      broadcastRoster(room);
-      console.log(`[lan] join room=${code} seat=${seat} name=${name}`);
-      return;
-    }
-
-    if (msg.t === "relay") {
-      const { room: code, seat } = ws.meta;
-      if (code == null) return;
-      const room = rooms.get(code);
-      if (!room) return;
-      // 호스트(좌석 0) 발신 → 나머지 전원. 게스트 발신 → 호스트에게만.
-      if (seat === 0) {
-        for (const [s, m] of room.members) if (s !== 0) send(m.ws, { t: "relay", fromSeat: 0, payload: msg.payload });
-      } else {
-        const host = room.members.get(0);
-        if (host) send(host.ws, { t: "relay", fromSeat: seat, payload: msg.payload });
+      case "create": {
+        const code = `r${++codeSeq}`;
+        const nick = String(msg.name ?? "P1").slice(0, 20);
+        const r = { code, name: String(msg.roomName ?? `${nick}의 방`).slice(0, 24), members: new Map(), spectators: new Set(), status: "waiting" };
+        r.members.set(0, { ws, name: nick });
+        rooms.set(code, r);
+        ws.meta = { code, seat: 0, role: "host" };
+        send(ws, { t: "joined", code, seat: 0, isHost: true, roster: rosterOf(r) });
+        pushLobby();
+        console.log(`[lan] create ${code} "${r.name}" host=${nick}`);
+        return;
       }
-      return;
+
+      case "join": {
+        const r = rooms.get(String(msg.code));
+        if (!r) { send(ws, { t: "err", msg: "존재하지 않는 방입니다." }); return; }
+        if (r.status !== "waiting") { send(ws, { t: "err", msg: "이미 시작된 방입니다. 관전만 가능합니다." }); return; }
+        if (ws.meta.seat >= 0) return;
+        const seat = firstFreeSeat(r);
+        if (seat < 0) { send(ws, { t: "full" }); return; }
+        const nick = String(msg.name ?? `P${seat + 1}`).slice(0, 20);
+        r.members.set(seat, { ws, name: nick });
+        ws.meta = { code: r.code, seat, role: "player" };
+        send(ws, { t: "joined", code: r.code, seat, isHost: false, roster: rosterOf(r) });
+        broadcastRoster(r);
+        const h = hostOf(r); if (h) send(h, { t: "resend" });
+        pushLobby();
+        return;
+      }
+
+      case "spectate": {
+        const r = rooms.get(String(msg.code));
+        if (!r) { send(ws, { t: "err", msg: "존재하지 않는 방입니다." }); return; }
+        r.spectators.add(ws);
+        ws.meta = { code: r.code, seat: -1, role: "spectator" };
+        send(ws, { t: "spectating", code: r.code, roster: rosterOf(r) });
+        const h = hostOf(r); if (h) send(h, { t: "resend" });
+        pushLobby();
+        return;
+      }
+
+      case "status": {
+        const r = rooms.get(ws.meta.code);
+        if (r && ws.meta.seat === 0) { r.status = String(msg.status ?? "waiting"); pushLobby(); }
+        return;
+      }
+
+      case "relay": {
+        const r = rooms.get(ws.meta.code);
+        if (!r) return;
+        if (ws.meta.role === "host") {
+          for (const [s, m] of r.members) if (s !== 0) send(m.ws, { t: "relay", fromSeat: 0, payload: msg.payload });
+          for (const w of r.spectators) send(w, { t: "relay", fromSeat: 0, payload: msg.payload });
+        } else if (ws.meta.role === "player") {
+          const h = hostOf(r); if (h) send(h, { t: "relay", fromSeat: ws.meta.seat, payload: msg.payload });
+        }
+        return;
+      }
+
+      case "leave-lobby":
+        lobbySubs.delete(ws);
+        return;
     }
   });
 
   ws.on("close", () => {
-    const { room: code, seat } = ws.meta;
+    lobbySubs.delete(ws);
+    const { code, seat, role } = ws.meta;
     if (code == null) return;
-    const room = rooms.get(code);
-    if (!room) return;
-    room.watchers.delete(ws);
-    if (seat < 0) { return; } // 관전자 이탈 → 좌석 영향 없음
-    room.members.delete(seat);
-    console.log(`[lan] leave room=${code} seat=${seat}`);
+    const r = rooms.get(code);
+    if (!r) return;
+    if (role === "spectator") { r.spectators.delete(ws); pushLobby(); return; }
+    r.members.delete(seat);
     if (seat === 0) {
-      // 호스트 이탈 → 방 종료 안내 후 정리
-      for (const m of room.members.values()) send(m.ws, { t: "host-left" });
-      for (const w of room.watchers) send(w, { t: "host-left" });
-      room.members.clear();
+      for (const m of r.members.values()) send(m.ws, { t: "host-left" });
+      for (const w of r.spectators) send(w, { t: "host-left" });
       rooms.delete(code);
+      console.log(`[lan] close room ${code} (host left)`);
     } else {
-      broadcastRoster(room);
+      broadcastRoster(r);
+      const h = hostOf(r); if (h) send(h, { t: "resend" });
     }
+    pushLobby();
   });
 });
 
 server.listen(PORT, "0.0.0.0", () => {
   const ips = [];
-  for (const list of Object.values(networkInterfaces())) {
-    for (const ni of list ?? []) if (ni.family === "IPv4" && !ni.internal) ips.push(ni.address);
-  }
-  console.log(`\n🐉 드래곤볼 스플렌더 LAN 서버 실행 중 (포트 ${PORT})`);
-  console.log(`   이 기기:   http://localhost:${PORT}`);
-  for (const ip of ips) console.log(`   같은 랜:   http://${ip}:${PORT}   ← 다른 기기는 이 주소로 접속`);
+  for (const list of Object.values(networkInterfaces())) for (const ni of list ?? []) if (ni.family === "IPv4" && !ni.internal) ips.push(ni.address);
+  console.log(`\n🐉 드래곤볼 스플렌더 LAN 서버 (포트 ${PORT}) — 다중 방/관전 지원`);
+  console.log(`   이 기기: http://localhost:${PORT}`);
+  for (const ip of ips) console.log(`   같은 랜: http://${ip}:${PORT}`);
   console.log("");
 });

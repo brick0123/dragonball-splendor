@@ -1,5 +1,14 @@
 // LAN 대전 클라이언트: 릴레이 서버(server/relay.mjs)와 WebSocket 통신.
-// 호스트(좌석 0)가 게임 권위를 가지며, 게스트는 상태를 받아 렌더하고 행동 의도를 보낸다.
+// 다중 방 + 방 목록 구독 + 방 생성/참가/관전. 호스트(좌석 0)가 게임 권위를 가진다.
+
+export interface RoomInfo {
+  readonly code: string;
+  readonly name: string;
+  readonly players: number;
+  readonly max: number;
+  readonly status: string; // "waiting" | "playing"
+  readonly spectators: number;
+}
 
 export interface RosterEntry {
   readonly seat: number;
@@ -7,70 +16,61 @@ export interface RosterEntry {
 }
 
 export interface LanHandlers {
-  onJoined(seat: number, isHost: boolean, roster: RosterEntry[]): void;
+  onRooms(rooms: RoomInfo[]): void;
+  onJoined(code: string, seat: number, isHost: boolean, roster: RosterEntry[]): void;
+  onSpectating(code: string, roster: RosterEntry[]): void;
   onRoster(roster: RosterEntry[]): void;
   onRelay(fromSeat: number, payload: unknown): void;
+  onResend(): void;
+  onError(msg: string): void;
   onClose(reason: string): void;
 }
 
 export class LanClient {
   private ws: WebSocket | null = null;
-  private room = "main";
   seat = -1;
   isHost = false;
+  code = "";
 
-  /** 서버 접속 + 대기실 구독(관전). 아직 좌석을 차지하지 않는다. join() 으로 착석.
-   *  url 예: `ws://localhost:5178`. */
-  connect(url: string, room: string, h: LanHandlers): void {
-    this.room = room;
+  /** 서버 접속 + 방 목록 구독. */
+  connect(url: string, h: LanHandlers): void {
     const ws = new WebSocket(url);
     this.ws = ws;
-    ws.addEventListener("open", () => {
-      ws.send(JSON.stringify({ t: "watch", room }));
-    });
+    ws.addEventListener("open", () => this.raw({ t: "watch-lobby" }));
     ws.addEventListener("message", (ev) => {
       let m: any;
       try { m = JSON.parse(String(ev.data)); } catch { return; }
       switch (m.t) {
+        case "rooms": h.onRooms(m.rooms ?? []); break;
         case "joined":
-          this.seat = m.seat;
-          this.isHost = m.isHost;
-          h.onJoined(m.seat, m.isHost, m.roster ?? []);
+          this.code = m.code; this.seat = m.seat; this.isHost = m.isHost;
+          h.onJoined(m.code, m.seat, m.isHost, m.roster ?? []);
           break;
-        case "roster":
-          h.onRoster(m.roster ?? []);
+        case "spectating":
+          this.code = m.code; this.seat = -1; this.isHost = false;
+          h.onSpectating(m.code, m.roster ?? []);
           break;
-        case "relay":
-          h.onRelay(m.fromSeat, m.payload);
-          break;
-        case "full":
-          h.onClose("방이 가득 찼습니다 (최대 4명).");
-          break;
-        case "host-left":
-          h.onClose("호스트가 나가 게임이 종료되었습니다.");
-          break;
+        case "roster": h.onRoster(m.roster ?? []); break;
+        case "relay": h.onRelay(m.fromSeat, m.payload); break;
+        case "resend": h.onResend(); break;
+        case "err": h.onError(m.msg ?? "오류"); break;
+        case "full": h.onError("방이 가득 찼습니다 (최대 4명)."); break;
+        case "host-left": h.onClose("호스트가 나가 방이 종료되었습니다."); break;
       }
     });
     ws.addEventListener("close", () => h.onClose("연결이 끊어졌습니다."));
     ws.addEventListener("error", () => h.onClose("서버에 연결할 수 없습니다."));
   }
 
-  /** 닉네임으로 착석(좌석 배정 요청). onJoined 로 결과 수신. */
-  join(name: string): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ t: "join", room: this.room, name }));
-    }
+  createRoom(roomName: string, name: string): void { this.raw({ t: "create", roomName, name }); }
+  joinRoom(code: string, name: string): void { this.raw({ t: "join", code, name }); }
+  spectate(code: string): void { this.raw({ t: "spectate", code }); }
+  setStatus(status: string): void { this.raw({ t: "status", status }); }
+  relay(payload: unknown): void { this.raw({ t: "relay", payload }); }
+
+  private raw(obj: unknown): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(obj));
   }
 
-  /** 앱 레벨 메시지 릴레이(호스트→전원 / 게스트→호스트). */
-  relay(payload: unknown): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ t: "relay", payload }));
-    }
-  }
-
-  close(): void {
-    this.ws?.close();
-    this.ws = null;
-  }
+  close(): void { this.ws?.close(); this.ws = null; }
 }
