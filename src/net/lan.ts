@@ -19,6 +19,7 @@ export interface LanHandlers {
   onRooms(rooms: RoomInfo[]): void;
   onJoined(code: string, seat: number, isHost: boolean, roster: RosterEntry[], token: string): void;
   onSpectating(code: string, roster: RosterEntry[]): void;
+  onPromote(hostSeat: number, roster: RosterEntry[]): void;
   onRoster(roster: RosterEntry[]): void;
   onRelay(fromSeat: number, payload: unknown): void;
   onResend(): void;
@@ -32,6 +33,7 @@ export class LanClient {
   seat = -1;
   isHost = false;
   code = "";
+  hostSeat = 0;
 
   /** 서버 접속 + 방 목록 구독. */
   connect(url: string, h: LanHandlers): void {
@@ -45,13 +47,23 @@ export class LanClient {
         case "rooms": h.onRooms(m.rooms ?? []); break;
         case "joined":
           this.code = m.code; this.seat = m.seat; this.isHost = m.isHost;
+          if (typeof m.hostSeat === "number") this.hostSeat = m.hostSeat;
           h.onJoined(m.code, m.seat, m.isHost, m.roster ?? [], m.token ?? "");
           break;
         case "spectating":
           this.code = m.code; this.seat = -1; this.isHost = false;
+          if (typeof m.hostSeat === "number") this.hostSeat = m.hostSeat;
           h.onSpectating(m.code, m.roster ?? []);
           break;
-        case "roster": h.onRoster(m.roster ?? []); break;
+        case "promote":
+          this.isHost = true;
+          if (typeof m.hostSeat === "number") { this.hostSeat = m.hostSeat; this.seat = m.hostSeat; }
+          h.onPromote(m.hostSeat ?? this.seat, m.roster ?? []);
+          break;
+        case "roster":
+          if (typeof m.hostSeat === "number") this.hostSeat = m.hostSeat;
+          h.onRoster(m.roster ?? []);
+          break;
         case "relay": h.onRelay(m.fromSeat, m.payload); break;
         case "resend": h.onResend(); break;
         case "reconnect-fail": h.onReconnectFail(); break;

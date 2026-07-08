@@ -1594,6 +1594,8 @@ button, input, select, textarea {
 .lan-room-badge { font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 999px; }
 .lan-room-badge.waiting { background: rgba(34,197,94,0.25); color: #86efac; }
 .lan-room-badge.playing { background: rgba(255,203,5,0.22); color: #ffcb05; }
+.lan-room-badge.mine { background: rgba(59,130,246,0.3); color: #93c5fd; }
+.lan-room.mine { border-color: rgba(59,130,246,0.6); background: rgba(59,130,246,0.1); }
 .lan-room-meta { font-size: 11px; opacity: 0.6; margin-top: 2px; }
 .lan-room-btns { display: flex; gap: 6px; flex: 0 0 auto; }
 .lan-btn.sm { font-size: 12px; padding: 6px 12px; }

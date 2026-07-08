@@ -39,13 +39,13 @@ const lobbySubs = new Set(); // 방 목록 구독 중인 소켓
 let codeSeq = 0;
 
 const send = (ws, obj) => { if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); };
-const hostOf = (r) => r.members.get(0)?.ws;
+const hostOf = (r) => r.members.get(r.hostSeat)?.ws;
 const rosterOf = (r) => [...r.members.entries()].map(([seat, m]) => ({ seat, name: m.name, on: !!m.ws })).sort((a, b) => a.seat - b.seat);
 function firstFreeSeat(r) { for (let s = 0; s < MAX_SEATS; s++) if (!r.members.has(s)) return s; return -1; }
 const roomInfo = (r) => ({ code: r.code, name: r.name, players: r.members.size, max: MAX_SEATS, status: r.status, spectators: r.spectators.size });
 const roomList = () => [...rooms.values()].map(roomInfo);
 function pushLobby() { const rl = roomList(); for (const w of lobbySubs) send(w, { t: "rooms", rooms: rl }); }
-function broadcastRoster(r) { const roster = rosterOf(r); for (const m of r.members.values()) send(m.ws, { t: "roster", roster }); for (const w of r.spectators) send(w, { t: "roster", roster }); }
+function broadcastRoster(r) { const roster = rosterOf(r); const hostSeat = r.hostSeat; for (const m of r.members.values()) send(m.ws, { t: "roster", roster, hostSeat }); for (const w of r.spectators) send(w, { t: "roster", roster, hostSeat }); }
 
 wss.on("connection", (ws) => {
   ws.meta = { code: null, seat: -1, role: "none" };
@@ -63,11 +63,11 @@ wss.on("connection", (ws) => {
         const code = `r${++codeSeq}`;
         const nick = String(msg.name ?? "P1").slice(0, 20);
         const token = randomUUID();
-        const r = { code, name: String(msg.roomName ?? `${nick}의 방`).slice(0, 24), members: new Map(), spectators: new Set(), status: "waiting", grace: new Map() };
+        const r = { code, name: String(msg.roomName ?? `${nick}의 방`).slice(0, 24), members: new Map(), spectators: new Set(), status: "waiting", grace: new Map(), hostSeat: 0 };
         r.members.set(0, { ws, name: nick, token });
         rooms.set(code, r);
         ws.meta = { code, seat: 0, role: "host" };
-        send(ws, { t: "joined", code, seat: 0, isHost: true, roster: rosterOf(r), token });
+        send(ws, { t: "joined", code, seat: 0, isHost: true, roster: rosterOf(r), token, hostSeat: r.hostSeat });
         pushLobby();
         console.log(`[lan] create ${code} "${r.name}" host=${nick}`);
         return;
@@ -84,7 +84,7 @@ wss.on("connection", (ws) => {
         const token = randomUUID();
         r.members.set(seat, { ws, name: nick, token });
         ws.meta = { code: r.code, seat, role: "player" };
-        send(ws, { t: "joined", code: r.code, seat, isHost: false, roster: rosterOf(r), token });
+        send(ws, { t: "joined", code: r.code, seat, isHost: false, roster: rosterOf(r), token, hostSeat: r.hostSeat });
         broadcastRoster(r);
         const h = hostOf(r); if (h) send(h, { t: "resend" });
         pushLobby();
@@ -100,11 +100,12 @@ wss.on("connection", (ws) => {
         const t = r.grace.get(found); if (t) { clearTimeout(t); r.grace.delete(found); }
         const m = r.members.get(found);
         m.ws = ws;
-        ws.meta = { code: r.code, seat: found, role: found === 0 ? "host" : "player" };
-        send(ws, { t: "joined", code: r.code, seat: found, isHost: found === 0, roster: rosterOf(r), token: m.token });
+        const isHost = found === r.hostSeat;
+        ws.meta = { code: r.code, seat: found, role: isHost ? "host" : "player" };
+        send(ws, { t: "joined", code: r.code, seat: found, isHost, roster: rosterOf(r), token: m.token, hostSeat: r.hostSeat });
         broadcastRoster(r);
         // 재접속자가 게스트면 호스트가 상태 재전송. 호스트면 스스로 재브로드캐스트함.
-        if (found !== 0) { const h = hostOf(r); if (h) send(h, { t: "resend" }); }
+        if (!isHost) { const h = hostOf(r); if (h) send(h, { t: "resend" }); }
         pushLobby();
         console.log(`[lan] reconnect ${r.code} seat=${found}`);
         return;
@@ -115,7 +116,7 @@ wss.on("connection", (ws) => {
         if (!r) { send(ws, { t: "err", msg: "존재하지 않는 방입니다." }); return; }
         r.spectators.add(ws);
         ws.meta = { code: r.code, seat: -1, role: "spectator" };
-        send(ws, { t: "spectating", code: r.code, roster: rosterOf(r) });
+        send(ws, { t: "spectating", code: r.code, roster: rosterOf(r), hostSeat: r.hostSeat });
         const h = hostOf(r); if (h) send(h, { t: "resend" });
         pushLobby();
         return;
@@ -123,7 +124,7 @@ wss.on("connection", (ws) => {
 
       case "status": {
         const r = rooms.get(ws.meta.code);
-        if (r && ws.meta.seat === 0) { r.status = String(msg.status ?? "waiting"); pushLobby(); }
+        if (r && ws.meta.seat === r.hostSeat) { r.status = String(msg.status ?? "waiting"); pushLobby(); }
         return;
       }
 
@@ -131,8 +132,8 @@ wss.on("connection", (ws) => {
         const r = rooms.get(ws.meta.code);
         if (!r) return;
         if (ws.meta.role === "host") {
-          for (const [s, m] of r.members) if (s !== 0 && m.ws) send(m.ws, { t: "relay", fromSeat: 0, payload: msg.payload });
-          for (const w of r.spectators) send(w, { t: "relay", fromSeat: 0, payload: msg.payload });
+          for (const [s, m] of r.members) if (s !== r.hostSeat && m.ws) send(m.ws, { t: "relay", fromSeat: r.hostSeat, payload: msg.payload });
+          for (const w of r.spectators) send(w, { t: "relay", fromSeat: r.hostSeat, payload: msg.payload });
         } else if (ws.meta.role === "player") {
           const h = hostOf(r); if (h) send(h, { t: "relay", fromSeat: ws.meta.seat, payload: msg.payload });
         }
@@ -169,11 +170,23 @@ function removeFromRoom(ws, immediate) {
   const finalize = () => {
     r.grace.delete(seat);
     r.members.delete(seat);
-    if (seat === 0) {
-      for (const mm of r.members.values()) send(mm.ws, { t: "host-left" });
+    if (r.members.size === 0) {
+      // 아무도 안 남음 → 방 종료(관전자에게 알림)
       for (const w of r.spectators) send(w, { t: "host-left" });
       rooms.delete(code);
-      console.log(`[lan] close room ${code} (host gone)`);
+      console.log(`[lan] close room ${code} (empty)`);
+      pushLobby();
+      return;
+    }
+    if (seat === r.hostSeat) {
+      // 호스트 이양: 남은 좌석 중 랜덤으로 새 호스트 승격(대기실·게임중 모두)
+      const keys = [...r.members.keys()];
+      const newHost = keys[Math.floor(Math.random() * keys.length)];
+      r.hostSeat = newHost;
+      const nm = r.members.get(newHost);
+      if (nm && nm.ws) { nm.ws.meta.role = "host"; send(nm.ws, { t: "promote", hostSeat: newHost, roster: rosterOf(r) }); }
+      broadcastRoster(r);
+      console.log(`[lan] host migrated ${code} -> seat ${newHost}`);
     } else {
       broadcastRoster(r);
       const h = hostOf(r); if (h) send(h, { t: "resend" });
