@@ -336,6 +336,15 @@ button, input, select, textarea {
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .tier-row:last-child { border-bottom: none; }
+/* 좌측 칸: 단계 라벨 + 더미 버튼 세로 배치 */
+.tier-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
 .tier-row .tier-label {
   writing-mode: vertical-rl;
   text-orientation: upright; /* 숫자·글자를 똑바로(눕지 않게) */
@@ -1048,8 +1057,9 @@ button, input, select, textarea {
 
 /* ── Blind reserve button ─────────────────────────── */
 .blind-reserve-btn {
-  font-size: 12px;
-  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 7px;
   border-radius: 6px;
   background: rgba(245,158,11,0.3);
   color: #fbbf24;
@@ -1168,6 +1178,32 @@ button, input, select, textarea {
   flex: 0 0 auto;
   border-width: 3px;
 }
+
+/* 인벤토리(획득·보관) 카드는 작으므로 헤더 요소(점수·구슬·진화·비용)를 비례 축소 — PC·모바일 공통 */
+.scored-stacks--me .poke-card .pc-head,
+.reserved-poke .pc-head { min-height: 48px; padding: 3px 5px; }
+.scored-stacks--me .poke-card .pc-pts,
+.reserved-poke .pc-pts { font-size: 24px; left: 6px; }
+.scored-stacks--me .poke-card .pc-bonus,
+.reserved-poke .pc-bonus { top: 4px; right: 4px; gap: 2px; }
+.scored-stacks--me .poke-card .pc-bonus img,
+.reserved-poke .pc-bonus img { width: 24px; height: 24px; }
+.scored-stacks--me .poke-card .pc-evo-img,
+.reserved-poke .pc-evo-img { width: 24px; height: 30px; }
+.scored-stacks--me .poke-card .pc-evo-cost,
+.reserved-poke .pc-evo-cost { font-size: 12px; }
+.scored-stacks--me .poke-card .pc-evo-cost img,
+.reserved-poke .pc-evo-cost img { width: 12px; height: 12px; }
+.scored-stacks--me .poke-card .pc-chip,
+.reserved-poke .pc-chip { width: 22px; height: 22px; border-width: 1.5px; }
+.scored-stacks--me .poke-card .pc-chip-n,
+.reserved-poke .pc-chip-n { font-size: 12px; }
+.scored-stacks--me .poke-card .pc-chip img,
+.reserved-poke .pc-chip img { width: 11px; height: 11px; right: -4px; bottom: -3px; }
+.scored-stacks--me .poke-card .pc-name,
+.reserved-poke .pc-name { font-size: 10px; padding: 1px 6px; right: 5px; bottom: 5px; max-width: calc(100% - 30px); }
+.scored-stacks--me .poke-card .pc-cost,
+.reserved-poke .pc-cost { left: 4px; bottom: 5px; gap: 3px; }
 
 /* 미니카드 진화 필요 조건 pip (색별 개수) */
 .mini-evo {

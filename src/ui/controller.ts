@@ -1634,27 +1634,27 @@ export class Controller {
     ];
     for (const [label, tier] of rows) {
       const rowWrap = el("div", { class: "tier-row" });
-      rowWrap.append(el("span", { class: "tier-label" }, [label]));
 
-      const cards = el("div", { class: "tier-cards" });
-      for (const id of this.state.board[tier]) cards.append(this.boardCardEl(id));
-      rowWrap.append(cards);
-
-      // Blind reserve button
+      // 좌측: 단계 라벨 + (내 차례면) '더미' 블라인드 보관 버튼(아이콘 없이 컴팩트)
+      const left = el("div", { class: "tier-left" }, [el("span", { class: "tier-label" }, [label])]);
       if (this.isHumanTurn() && this.phase === "human-action") {
         const blinds = legalMainActions(this.state).filter(
           (a): a is Extract<MainAction, { type: "reserveBlind" }> => a.type === "reserveBlind" && a.tier === tier,
         );
         if (blinds.length > 0) {
-          rowWrap.append(el("button", {
+          left.append(el("button", {
             class: "blind-reserve-btn",
+            title: "덱에서 안 보고 1장 보관",
             onclick: () => this.humanPlay(blinds[0]!),
-          }, [
-            el("i", { class: "fa-solid fa-eye-slash mr-1" }),
-            "더미",
-          ]));
+          }, ["더미"]));
         }
       }
+      rowWrap.append(left);
+
+      const cards = el("div", { class: "tier-cards" });
+      for (const id of this.state.board[tier]) cards.append(this.boardCardEl(id));
+      rowWrap.append(cards);
+
       board.append(rowWrap);
     }
 
