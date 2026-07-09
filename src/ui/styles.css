@@ -1689,8 +1689,15 @@ button, input, select, textarea {
   border-radius: 999px;
   background: #ef4444; color: #fff;
   font-size: 11px; font-weight: 800; line-height: 18px; text-align: center;
+  box-shadow: 0 0 0 2px rgba(15,18,30,0.9), 0 0 8px rgba(239,68,68,0.9);
+  animation: chat-badge-pulse 1.4s ease-in-out infinite;
 }
 .chat-badge:empty { display: none; }
+@keyframes chat-badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
+@media (prefers-reduced-motion: reduce) { .chat-badge { animation: none; } }
 .chat-panel {
   display: none;
   flex-direction: column;
@@ -1698,10 +1705,10 @@ button, input, select, textarea {
   height: min(360px, 52vh);
   border-radius: 16px;
   overflow: hidden;
-  background: rgba(12,15,26,0.55); /* 투명도 높여 게임이 비쳐 보이도록 */
-  border: 1px solid rgba(255,255,255,0.14);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
-  backdrop-filter: blur(6px);
+  background: rgba(12,15,26,0.32); /* 투명도 더 높여 게임이 잘 비쳐 보이도록 */
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+  backdrop-filter: blur(4px);
 }
 .chat-widget.open .chat-panel { display: flex; }
 .chat-head {
@@ -1724,6 +1731,15 @@ button, input, select, textarea {
   word-break: break-word; white-space: pre-wrap;
 }
 .chat-msg.mine .chat-text { background: rgba(255,203,5,0.22); color: #fff; }
+/* 게임 로그(시스템 메시지): 가운데 정렬·흐린 회색 */
+.chat-msg.chat-system {
+  align-self: center; max-width: 96%;
+  font-size: 11px; line-height: 1.3;
+  color: rgba(255,255,255,0.72);
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px; padding: 3px 9px;
+  text-align: center;
+}
 .chat-input-row { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(255,255,255,0.1); }
 .chat-input {
   flex: 1; min-width: 0;

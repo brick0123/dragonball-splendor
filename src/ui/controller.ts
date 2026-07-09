@@ -205,6 +205,8 @@ export class Controller {
     document.body.append(w);
     this.chatWidget = w; this.chatMsgsEl = msgs; this.chatInputEl = input; this.chatBadgeEl = badge;
     this.chatOpen = false; this.chatUnread = 0;
+    // 최근 게임 로그를 채팅창에 미리 채워 둔다
+    for (const line of this.aiLog) this.addChatSystem(line);
   }
 
   private unmountChat(): void {
@@ -234,6 +236,13 @@ export class Controller {
     if (!text) return;
     this.lan.chat(text.slice(0, 300));
     this.chatInputEl.textContent = "";
+  }
+
+  /** 게임 로그를 채팅창에 시스템 메시지로 추가(빨간점 알림·효과음 없음). */
+  private addChatSystem(text: string): void {
+    if (!this.chatMsgsEl) return;
+    this.chatMsgsEl.append(el("div", { class: "chat-msg chat-system" }, colorizeLog(text)));
+    this.chatMsgsEl.scrollTop = this.chatMsgsEl.scrollHeight;
   }
 
   private handleChat(seat: number, name: string, text: string, spectator: boolean): void {
@@ -996,6 +1005,8 @@ export class Controller {
   private pushAiLog(desc: string): void {
     this.aiLog.push(desc);
     if (this.aiLog.length > 5) this.aiLog.shift();
+    // 채팅창에도 로그를 시스템 메시지로 남긴다(채팅은 전체 히스토리 유지)
+    this.addChatSystem(desc);
   }
 
   private describeAction(playerIdx: number, action: MainAction): string {
