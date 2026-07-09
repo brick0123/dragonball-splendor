@@ -174,7 +174,13 @@ export class Controller {
     const msgs = el("div", { class: "chat-msgs" });
     const input = el("input", {
       class: "chat-input", type: "text", maxLength: 300, placeholder: "메시지 입력…",
-      onkeydown: (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); this.sendChat(); } },
+      onkeydown: (e: KeyboardEvent) => {
+        // 한글 IME 조합 중 Enter(keyCode 229 / isComposing)는 무시 — 마지막 글자 중복 전송 방지
+        if (e.key !== "Enter") return;
+        if (e.isComposing || (e as unknown as { keyCode: number }).keyCode === 229) return;
+        e.preventDefault();
+        this.sendChat();
+      },
     }) as HTMLInputElement;
     const badge = el("span", { class: "chat-badge" }, []);
     const panel = el("div", { class: "chat-panel" }, [
