@@ -101,10 +101,13 @@ export class Controller {
    *  재생/음소거는 상단 헤더의 뮤직 플레이어 컨트롤로 조작. */
   private mountMusicPlayer(): void {
     if (this.bgmIframe) return;
-    const VIDEO_ID = "uC8sc0cQa9M";
+    // 여러 곡을 순환 반복(loop=1 + playlist 에 전체 ID). 첫 곡은 embed 경로, 재생목록에 전체 나열.
+    const VIDEO_IDS = ["uC8sc0cQa9M", "FhsqaWUlR9U"];
+    const first = VIDEO_IDS[0];
+    const list = VIDEO_IDS.join(",");
     const iframe = document.createElement("iframe");
     // 음소거로 자동재생 시작(정책) → 첫 입력 때 소리 켬. display:none 이면 오디오가 멈추므로 화면 밖 1px 로 숨김.
-    iframe.src = `https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${VIDEO_ID}&controls=0&rel=0&playsinline=1&enablejsapi=1`;
+    iframe.src = `https://www.youtube.com/embed/${first}?autoplay=1&mute=1&loop=1&playlist=${list}&controls=0&rel=0&playsinline=1&enablejsapi=1`;
     iframe.title = "BGM";
     iframe.allow = "autoplay; encrypted-media";
     iframe.setAttribute("frameborder", "0");
