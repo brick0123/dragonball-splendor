@@ -87,6 +87,12 @@ export function sfxEvolve(): void {
   tone(2093, 0.36, 0.16, "triangle", 0.3);
 }
 
+/** 채팅 도착: 짧고 부드러운 알림음. */
+export function sfxChat(): void {
+  tone(988, 0, 0.06, "sine", 0.5);
+  tone(1319, 0.05, 0.1, "sine", 0.45);
+}
+
 /** 승리/게임 종료 팡파르. */
 export function sfxWin(): void {
   tone(523, 0, 0.14, "triangle", 0.7);

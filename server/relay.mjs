@@ -66,7 +66,7 @@ wss.on("connection", (ws) => {
         const r = { code, name: String(msg.roomName ?? `${nick}의 방`).slice(0, 24), members: new Map(), spectators: new Set(), status: "waiting", grace: new Map(), hostSeat: 0 };
         r.members.set(0, { ws, name: nick, token });
         rooms.set(code, r);
-        ws.meta = { code, seat: 0, role: "host" };
+        ws.meta = { code, seat: 0, role: "host", name: nick };
         send(ws, { t: "joined", code, seat: 0, isHost: true, roster: rosterOf(r), token, hostSeat: r.hostSeat });
         pushLobby();
         console.log(`[lan] create ${code} "${r.name}" host=${nick}`);
@@ -83,7 +83,7 @@ wss.on("connection", (ws) => {
         const nick = String(msg.name ?? `P${seat + 1}`).slice(0, 20);
         const token = randomUUID();
         r.members.set(seat, { ws, name: nick, token });
-        ws.meta = { code: r.code, seat, role: "player" };
+        ws.meta = { code: r.code, seat, role: "player", name: nick };
         send(ws, { t: "joined", code: r.code, seat, isHost: false, roster: rosterOf(r), token, hostSeat: r.hostSeat });
         broadcastRoster(r);
         const h = hostOf(r); if (h) send(h, { t: "resend" });
@@ -101,7 +101,7 @@ wss.on("connection", (ws) => {
         const m = r.members.get(found);
         m.ws = ws;
         const isHost = found === r.hostSeat;
-        ws.meta = { code: r.code, seat: found, role: isHost ? "host" : "player" };
+        ws.meta = { code: r.code, seat: found, role: isHost ? "host" : "player", name: m.name };
         send(ws, { t: "joined", code: r.code, seat: found, isHost, roster: rosterOf(r), token: m.token, hostSeat: r.hostSeat });
         broadcastRoster(r);
         // 재접속자가 게스트면 호스트가 상태 재전송. 호스트면 스스로 재브로드캐스트함.
@@ -115,7 +115,8 @@ wss.on("connection", (ws) => {
         const r = rooms.get(String(msg.code));
         if (!r) { send(ws, { t: "err", msg: "존재하지 않는 방입니다." }); return; }
         r.spectators.add(ws);
-        ws.meta = { code: r.code, seat: -1, role: "spectator" };
+        const specName = String(msg.name ?? "관전자").slice(0, 20);
+        ws.meta = { code: r.code, seat: -1, role: "spectator", name: specName };
         send(ws, { t: "spectating", code: r.code, roster: rosterOf(r), hostSeat: r.hostSeat });
         const h = hostOf(r); if (h) send(h, { t: "resend" });
         pushLobby();
@@ -142,6 +143,18 @@ wss.on("connection", (ws) => {
 
       case "leave": { // 방 완전히 나가기(유예 없이 즉시 제거)
         removeFromRoom(ws, true);
+        return;
+      }
+
+      case "chat": {
+        const r = rooms.get(ws.meta.code);
+        if (!r) return;
+        const text = String(msg.text ?? "").slice(0, 300);
+        if (!text.trim()) return;
+        const name = ws.meta.name || (ws.meta.seat >= 0 ? r.members.get(ws.meta.seat)?.name : "관전자") || "익명";
+        const payload = { t: "chat", seat: ws.meta.seat, name, text, spectator: ws.meta.role === "spectator" };
+        for (const m of r.members.values()) send(m.ws, payload);
+        for (const w of r.spectators) send(w, payload);
         return;
       }
 

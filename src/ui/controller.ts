@@ -14,7 +14,7 @@ import { Rng } from "@/game/rng";
 import { COLOR_DISPLAY, MAX_RESERVED, MAX_BALLS_IN_HAND } from "@/data/balls";
 import { FUSIONS, FUSION_BY_ROMANIZED } from "@/data/cards";
 import { fusionImg, cardImg, ballImg, assetUrl } from "./assets";
-import { sfxPick, sfxTake, sfxBuy, sfxReserve, sfxEvolve, sfxWin, primeSfx } from "./sfx";
+import { sfxPick, sfxTake, sfxBuy, sfxReserve, sfxEvolve, sfxWin, sfxChat, primeSfx } from "./sfx";
 import SimWorker from "@/simulator/worker?worker&inline";
 import {
   el, ballIcon, makeCardEl,
@@ -84,6 +84,13 @@ export class Controller {
   private bgmIframe: HTMLIFrameElement | null = null;
   private bgmOn = false; // 기본 OFF(사용자가 켜야 재생).
   private static readonly BGM_VOLUME = 80; // 기존 100 기준 -20%
+  // ── 채팅(온라인 방) ── render() 트리 밖(body)에 상주해 리렌더 시 입력 포커스 유지
+  private chatWidget: HTMLElement | null = null;
+  private chatMsgsEl: HTMLElement | null = null;
+  private chatInputEl: HTMLInputElement | null = null;
+  private chatBadgeEl: HTMLElement | null = null;
+  private chatOpen = false;
+  private chatUnread = 0;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -161,9 +168,84 @@ export class Controller {
     ]);
   }
 
+  // ── 채팅(온라인 방 전용, body 상주 위젯) ──
+  private mountChat(): void {
+    if (this.chatWidget) return;
+    const msgs = el("div", { class: "chat-msgs" });
+    const input = el("input", {
+      class: "chat-input", type: "text", maxLength: 300, placeholder: "메시지 입력…",
+      onkeydown: (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); this.sendChat(); } },
+    }) as HTMLInputElement;
+    const badge = el("span", { class: "chat-badge" }, []);
+    const panel = el("div", { class: "chat-panel" }, [
+      el("div", { class: "chat-head" }, [
+        el("span", {}, ["채팅"]),
+        el("button", { class: "chat-close", onclick: () => this.toggleChat(false) }, ["✕"]),
+      ]),
+      msgs,
+      el("div", { class: "chat-input-row" }, [
+        input,
+        el("button", { class: "chat-send", onclick: () => this.sendChat() }, ["전송"]),
+      ]),
+    ]);
+    const toggle = el("button", { class: "chat-toggle", title: "채팅", onclick: () => this.toggleChat() }, [
+      el("i", { class: "fa-solid fa-comment" }), badge,
+    ]);
+    const w = el("div", { class: "chat-widget" }, [panel, toggle]);
+    document.body.append(w);
+    this.chatWidget = w; this.chatMsgsEl = msgs; this.chatInputEl = input; this.chatBadgeEl = badge;
+    this.chatOpen = false; this.chatUnread = 0;
+  }
+
+  private unmountChat(): void {
+    this.chatWidget?.remove();
+    this.chatWidget = this.chatMsgsEl = this.chatInputEl = this.chatBadgeEl = null;
+    this.chatOpen = false; this.chatUnread = 0;
+  }
+
+  private toggleChat(open?: boolean): void {
+    if (!this.chatWidget) return;
+    this.chatOpen = open ?? !this.chatOpen;
+    this.chatWidget.classList.toggle("open", this.chatOpen);
+    if (this.chatOpen) {
+      this.chatUnread = 0; this.updateChatBadge();
+      this.chatInputEl?.focus();
+      if (this.chatMsgsEl) this.chatMsgsEl.scrollTop = this.chatMsgsEl.scrollHeight;
+    }
+  }
+
+  private updateChatBadge(): void {
+    if (this.chatBadgeEl) this.chatBadgeEl.textContent = this.chatUnread > 0 ? String(this.chatUnread) : "";
+  }
+
+  private sendChat(): void {
+    if (!this.chatInputEl || !this.lan) return;
+    const text = this.chatInputEl.value.trim();
+    if (!text) return;
+    this.lan.chat(text);
+    this.chatInputEl.value = "";
+  }
+
+  private handleChat(seat: number, name: string, text: string, spectator: boolean): void {
+    if (!this.chatMsgsEl) this.mountChat();
+    const mine = spectator
+      ? (this.netMode === "spectator" && name === (this.lanName || "관전자"))
+      : (this.netMode !== "spectator" && seat === this.mySeat);
+    this.chatMsgsEl!.append(el("div", { class: `chat-msg${mine ? " mine" : ""}` }, [
+      el("span", { class: "chat-name" }, [spectator ? `${name} (관전)` : name]),
+      el("span", { class: "chat-text" }, [text]),
+    ]));
+    this.chatMsgsEl!.scrollTop = this.chatMsgsEl!.scrollHeight;
+    if (!mine) {
+      sfxChat();
+      if (!this.chatOpen) { this.chatUnread++; this.updateChatBadge(); }
+    }
+  }
+
   newGame(seed = (Math.random() * 1e9) | 0): void {
     // 로컬 새 게임 = LAN 완전히 떠남. 남은 연결을 정리해 재진입 시 '연결 끊김' 방지.
     if (this.lan) { this.lanClosing = true; this.lan.leave(); this.lan.close(); this.lan = null; }
+    this.unmountChat();
     this.homeOpen = false;
     this.inGame = true;
     this.lanJoined = false;
@@ -370,6 +452,7 @@ export class Controller {
         this.netMode = isHost ? "host" : "guest";
         this.lanRoster = roster;
         this.lanJoined = true;
+        this.mountChat();
         this.saveLanSession({ code, token, role: isHost ? "host" : "guest", name: this.lanName || "플레이어" });
         // 자동 재연결 성공: 상태 복구하고 배너 해제(화면 전환 없음)
         if (this.lanNetDown) {
@@ -402,7 +485,8 @@ export class Controller {
         this.lanRoster = roster;
         this.lanJoined = false;
         this.lanLobbyOpen = false;
-        this.saveLanSession({ code, token: "", role: "spectator", name: "" });
+        this.mountChat();
+        this.saveLanSession({ code, token: "", role: "spectator", name: this.lanName || "관전자" });
         this.setMsg({ kind: "info", text: "관전 중 — 호스트의 게임 상태를 기다립니다…" });
         this.render();
       },
@@ -410,6 +494,7 @@ export class Controller {
       onRoster: (roster) => { this.lanRoster = roster; this.onLanRosterChange(); },
       onRelay: (from, payload) => this.handleRelay(from, payload),
       onResend: () => { if (this.netMode === "host" && this.inGame) this.broadcastState(); },
+      onChat: (seat, name, text, spectator) => this.handleChat(seat, name, text, spectator),
       onReconnectFail: () => {
         // 자동 재연결 중이면(유예 초과로 자리 사라짐) 조용히 싱글로
         if (this.lanNetDown) { this.giveUpReconnect(); return; }
@@ -504,7 +589,7 @@ export class Controller {
 
   private fireReconnect(s: { code: string; token: string; role: string }): void {
     if (!this.lan) return;
-    if (s.role === "spectator") this.lan.spectate(s.code);
+    if (s.role === "spectator") this.lan.spectate(s.code, this.lanName || "관전자");
     else this.lan.reconnect(s.code, s.token);
   }
 
@@ -539,7 +624,7 @@ export class Controller {
   private spectateRoom(code: string): void {
     if (!this.lan) return;
     this.lanError = "";
-    this.lan.spectate(code);
+    this.lan.spectate(code, this.lanName.trim() || "관전자");
   }
 
   /** 로스터 변경 처리. 진행 중 사람 좌석이 빠지면 그 플레이어를 게임에서 제거
@@ -673,6 +758,7 @@ export class Controller {
   private leaveLan(): void {
     if (this.lan) { this.lanClosing = true; this.lan.leave(); this.lan.close(); }
     this.lan = null;
+    this.unmountChat();
     this.clearLanSession();
     this.netMode = "local";
     this.mySeat = DEFAULT_SEAT;
@@ -1126,7 +1212,8 @@ export class Controller {
   private humanHasFusionRecipe(romanized: string): boolean {
     const f = FUSION_BY_ROMANIZED[romanized];
     if (!f) return false;
-    const me = this.state.players[this.mySeat]!;
+    const me = this.state.players[this.mySeat]; // 관전자면 undefined
+    if (!me) return false;
     return f.recipe.every((req) =>
       me.scored.some((id) => {
         const c = cardOf(id);
@@ -1786,11 +1873,11 @@ export class Controller {
 
   private boardCardEl(id: string): HTMLElement {
     const card = cardOf(id);
-    const myTurn = this.isHumanTurn() && this.phase === "human-action";
-    const affordable = canAfford(this.state.players[this.mySeat]!, card);
+    const me = this.state.players[this.mySeat]; // 관전자(mySeat=-1)면 undefined
+    const myTurn = !!me && this.isHumanTurn() && this.phase === "human-action";
+    const affordable = !!me && canAfford(me, card);
     const isStage = card.tier === 1 || card.tier === 2 || card.tier === 3;
-    const me = this.state.players[this.mySeat]!;
-    const reserveOk = isStage && me.reserved.length < MAX_RESERVED;
+    const reserveOk = isStage && !!me && me.reserved.length < MAX_RESERVED;
 
     const clickable = myTurn;
     const dim = myTurn && !affordable;

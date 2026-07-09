@@ -24,6 +24,7 @@ export interface LanHandlers {
   onRelay(fromSeat: number, payload: unknown): void;
   onResend(): void;
   onReconnectFail(): void;
+  onChat(seat: number, name: string, text: string, spectator: boolean): void;
   onError(msg: string): void;
   onClose(reason: string): void;
 }
@@ -66,6 +67,7 @@ export class LanClient {
           break;
         case "relay": h.onRelay(m.fromSeat, m.payload); break;
         case "resend": h.onResend(); break;
+        case "chat": h.onChat(m.seat ?? -1, m.name ?? "익명", m.text ?? "", !!m.spectator); break;
         case "reconnect-fail": h.onReconnectFail(); break;
         case "err": h.onError(m.msg ?? "오류"); break;
         case "full": h.onError("방이 가득 찼습니다 (최대 4명)."); break;
@@ -79,10 +81,11 @@ export class LanClient {
   createRoom(roomName: string, name: string): void { this.raw({ t: "create", roomName, name }); }
   joinRoom(code: string, name: string): void { this.raw({ t: "join", code, name }); }
   reconnect(code: string, token: string): void { this.raw({ t: "reconnect", code, token }); }
-  spectate(code: string): void { this.raw({ t: "spectate", code }); }
+  spectate(code: string, name = "관전자"): void { this.raw({ t: "spectate", code, name }); }
   leave(): void { this.raw({ t: "leave" }); }
   setStatus(status: string): void { this.raw({ t: "status", status }); }
   relay(payload: unknown): void { this.raw({ t: "relay", payload }); }
+  chat(text: string): void { this.raw({ t: "chat", text }); }
 
   private raw(obj: unknown): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(obj));
