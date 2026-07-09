@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 440">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="43%" r="60%">
+      <stop offset="0%" stop-color="#fff4cf" stop-opacity="0.95"/>
+      <stop offset="34%" stop-color="#ffcb52" stop-opacity="0.6"/>
+      <stop offset="66%" stop-color="#ff961e" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#ff7a00" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="b" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.4" result="x"/>
+      <feMerge><feMergeNode in="x"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <ellipse cx="150" cy="205" rx="150" ry="215" fill="url(#glow)"/>
+  <g filter="url(#b)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#5fd0ff" stroke-width="3.6" opacity="0.92">
+      <path d="M150 205 L142 128 L162 122 L150 34"/>
+      <path d="M150 205 L118 150 L138 140 L96 66"/>
+      <path d="M150 205 L184 150 L164 141 L208 66"/>
+      <path d="M150 205 L86 190 L94 172 L26 158"/>
+      <path d="M150 205 L214 190 L206 172 L276 158"/>
+      <path d="M150 205 L116 278 L138 286 L100 366"/>
+      <path d="M150 205 L186 274 L164 282 L204 366"/>
+      <path d="M150 205 L156 300 L140 306 L150 404"/>
+    </g>
+    <g stroke="#eafaff" stroke-width="1.5">
+      <path d="M150 205 L142 128 L162 122 L150 34"/>
+      <path d="M150 205 L118 150 L138 140 L96 66"/>
+      <path d="M150 205 L184 150 L164 141 L208 66"/>
+      <path d="M150 205 L86 190 L94 172 L26 158"/>
+      <path d="M150 205 L214 190 L206 172 L276 158"/>
+      <path d="M150 205 L116 278 L138 286 L100 366"/>
+      <path d="M150 205 L186 274 L164 282 L204 366"/>
+      <path d="M150 205 L156 300 L140 306 L150 404"/>
+    </g>
+  </g>
+</svg>

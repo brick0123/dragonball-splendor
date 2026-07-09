@@ -606,7 +606,10 @@ button, input, select, textarea {
   border-radius: 14px;
   overflow: hidden;
   --pc-accent: 168,85,247; /* pc-head/pc-pts 를 퓨전 테마(보라)로 */
-  background: linear-gradient(180deg, rgba(168,85,247,0.16), rgba(124,58,237,0.08));
+  /* 진한 보라 에너지 배경(카드가 비어 보이지 않도록) */
+  background:
+    radial-gradient(120% 80% at 50% 30%, rgba(196,132,252,0.35), rgba(88,28,135,0.55) 60%, rgba(46,16,74,0.85) 100%),
+    linear-gradient(180deg, #3b1668, #24103f);
   border: 4px solid rgb(168,85,247);
 }
 /* 상단 레시피 띠: 필요 캐릭터 누끼 2개 + 가운데 "+" (색 헤더/박스/라벨 없음) */
@@ -631,8 +634,9 @@ button, input, select, textarea {
   font-size: 20px;
   text-shadow: 0 1px 2px rgba(0,0,0,0.4);
 }
-/* 퓨전 캐릭터 아트: 카드 대부분을 차지하도록 크게(흰 배경 없이 카드 틴트 위) */
+/* 퓨전 캐릭터 아트: 카드 대부분을 차지하도록 크게 + 초사이어인 번개 아우라 배경 */
 .fusion-card .fusion-art {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   background: transparent;
@@ -641,7 +645,25 @@ button, input, select, textarea {
   justify-content: center;
   margin-top: -6px;
 }
-.fusion-card .fusion-img { width: 100%; height: 100%; object-fit: contain; }
+/* 골든 에너지 + 청백 번개 아우라(캐릭터 뒤) */
+.fusion-card .fusion-art::before {
+  content: "";
+  position: absolute;
+  inset: -8% -6% -2%;
+  background: url(../../assets/fusion/aura.svg) center 42% / 118% auto no-repeat;
+  mix-blend-mode: screen;
+  z-index: 0;
+  pointer-events: none;
+  animation: fusion-aura 2.6s ease-in-out infinite;
+}
+.fusion-card .fusion-img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; }
+@keyframes fusion-aura {
+  0%, 100% { opacity: 0.72; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fusion-card .fusion-art::before { animation: none; opacity: 0.85; }
+}
 /* 점수 배지(좌상단, 작은 원형 pill) */
 .fusion-card .fusion-pts {
   position: absolute;
