@@ -188,6 +188,13 @@ export const FUSIONS: readonly {
       { romanized: "vegeta_ss", tier: 2, label: "2단계 베지터" },
     ],
   },
+  {
+    name: "미래전사", romanized: "mirae", points: 2,
+    recipe: [
+      { romanized: "gohan_ss2", tier: 2, label: "2단계 오반" },
+      { romanized: "trunks_ss2", tier: 3, label: "3단계 트랭크스" },
+    ],
+  },
 ];
 
 /** 퓨전 romanized → 정의. 점수 합산·표시 조회용. */
