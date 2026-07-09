@@ -87,7 +87,7 @@ export class Controller {
   // ── 채팅(온라인 방) ── render() 트리 밖(body)에 상주해 리렌더 시 입력 포커스 유지
   private chatWidget: HTMLElement | null = null;
   private chatMsgsEl: HTMLElement | null = null;
-  private chatInputEl: HTMLInputElement | null = null;
+  private chatInputEl: HTMLElement | null = null;
   private chatBadgeEl: HTMLElement | null = null;
   private chatOpen = false;
   private chatUnread = 0;
@@ -172,8 +172,12 @@ export class Controller {
   private mountChat(): void {
     if (this.chatWidget) return;
     const msgs = el("div", { class: "chat-msgs" });
-    const input = el("input", {
-      class: "chat-input", type: "text", maxLength: 300, placeholder: "메시지 입력…",
+    // input 대신 contenteditable div — iOS의 폼 필드 네비게이션(이전/다음 ^ v) 액세서리 바를 띄우지 않음
+    const input = el("div", {
+      class: "chat-input",
+      contentEditable: "true",
+      role: "textbox",
+      dataset: { placeholder: "메시지 입력…" },
       onkeydown: (e: KeyboardEvent) => {
         // 한글 IME 조합 중 Enter(keyCode 229 / isComposing)는 무시 — 마지막 글자 중복 전송 방지
         if (e.key !== "Enter") return;
@@ -181,7 +185,7 @@ export class Controller {
         e.preventDefault();
         this.sendChat();
       },
-    }) as HTMLInputElement;
+    }) as HTMLElement;
     const badge = el("span", { class: "chat-badge" }, []);
     const panel = el("div", { class: "chat-panel" }, [
       el("div", { class: "chat-head" }, [
@@ -226,10 +230,10 @@ export class Controller {
 
   private sendChat(): void {
     if (!this.chatInputEl || !this.lan) return;
-    const text = this.chatInputEl.value.trim();
+    const text = (this.chatInputEl.textContent ?? "").trim();
     if (!text) return;
-    this.lan.chat(text);
-    this.chatInputEl.value = "";
+    this.lan.chat(text.slice(0, 300));
+    this.chatInputEl.textContent = "";
   }
 
   private handleChat(seat: number, name: string, text: string, spectator: boolean): void {
@@ -1793,8 +1797,8 @@ export class Controller {
         el("div", { class: "fusion-art" }, [
           el("img", { src: fusionImg(f.romanized), alt: f.name, class: "fusion-img" }),
         ]),
-        // 점수 배지(작게, 좌상단)
-        el("div", { class: "fusion-pts" }, [`+${f.points}`]),
+        // 점수 배지(작게, 좌상단) — 일반 카드처럼 숫자만
+        el("div", { class: "fusion-pts" }, [String(f.points)]),
         el("div", { class: "fusion-name" }, [f.name]),
       ]);
       if (owner !== null) {
