@@ -1770,7 +1770,6 @@ export class Controller {
         if (i > 0) recipe.append(el("span", { class: "fusion-plus" }, ["+"]));
         recipe.append(el("div", { class: "fusion-req" }, [
           el("img", { src: cardImg(r.tier, r.romanized), alt: r.label }),
-          el("span", { class: "fusion-req-lv" }, [`${r.tier}단계`]),
         ]));
       });
 
@@ -1782,14 +1781,14 @@ export class Controller {
         class: cardCls.join(" "),
         title: `${f.name} (퓨전 — ${f.points}점 / ${f.recipe.map((r) => r.label).join(" + ")})`,
       }, [
-        // 일반 카드와 동일한 헤더: 점수(좌, pc-pts 동일). 레시피는 아래 전용 띠에 크게.
-        el("div", { class: "pc-head fusion-head" }, [
-          el("div", { class: "pc-pts" }, [String(f.points)]),
-        ]),
+        // 상단: 진화에 필요한 캐릭터 누끼 2개 + 가운데 "+"
         recipe,
+        // 퓨전 캐릭터 아트(크게)
         el("div", { class: "fusion-art" }, [
           el("img", { src: fusionImg(f.romanized), alt: f.name, class: "fusion-img" }),
         ]),
+        // 점수 배지(작게, 좌상단)
+        el("div", { class: "fusion-pts" }, [`+${f.points}`]),
         el("div", { class: "fusion-name" }, [f.name]),
       ]);
       if (owner !== null) {

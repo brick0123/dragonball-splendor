@@ -609,53 +609,59 @@ button, input, select, textarea {
   background: linear-gradient(180deg, rgba(168,85,247,0.16), rgba(124,58,237,0.08));
   border: 4px solid rgb(168,85,247);
 }
-/* 헤더: 점수만 좌측(pc-pts). 숫자만 있으므로 높이를 낮춰 아트 공간 확보 */
-.fusion-card .fusion-head {
-  min-height: 46px;
-  justify-content: flex-start;
-  padding: 2px 8px;
-}
-/* 퓨전 획득 조건(레시피): 헤더 아래 전용 띠에 필요 캐릭터 2단계 썸네일을 크게 */
+/* 상단 레시피 띠: 필요 캐릭터 누끼 2개 + 가운데 "+" (색 헤더/박스/라벨 없음) */
 .fusion-card .fusion-recipe {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 4px 4px 3px;
-  background: rgba(124,58,237,0.22);
-  border-bottom: 1px dashed rgba(168,85,247,0.5);
+  gap: 10px;
+  padding: 6px 8px 2px;
   z-index: 2;
 }
-.fusion-card .fusion-req { display: flex; flex-direction: column; align-items: center; }
+.fusion-card .fusion-req { display: flex; align-items: center; }
 .fusion-card .fusion-req img {
-  width: 44px;
-  height: 54px;
+  width: 46px;
+  height: 50px;
   object-fit: contain;
-  background: #fff;
-  border: 2px solid rgba(168,85,247,0.9);
-  border-radius: 6px;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.45));
 }
-.fusion-card .fusion-req-lv {
-  font-size: 10px;
+.fusion-card .fusion-plus {
+  color: #c4b5fd;
   font-weight: 900;
-  color: #fff;
-  margin-top: 2px;
-  padding: 1px 5px;
-  background: rgba(0,0,0,0.65);
-  border-radius: 6px;
-  line-height: 1.3;
-  white-space: nowrap;
+  font-size: 20px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
 }
-.fusion-card .fusion-plus { color: #7c3aed; font-weight: 900; font-size: 18px; }
+/* 퓨전 캐릭터 아트: 카드 대부분을 차지하도록 크게(흰 배경 없이 카드 틴트 위) */
 .fusion-card .fusion-art {
   flex: 1 1 auto;
   min-height: 0;
-  background: #fff;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: -6px;
 }
 .fusion-card .fusion-img { width: 100%; height: 100%; object-fit: contain; }
+/* 점수 배지(좌상단, 작은 원형 pill) */
+.fusion-card .fusion-pts {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  z-index: 4;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(180deg, #a855f7, #7c3aed);
+  border: 2px solid rgba(255,255,255,0.92);
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.45);
+}
 .fusion-card .fusion-name {
   position: absolute;
   right: 6px;
